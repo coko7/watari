@@ -2,6 +2,8 @@
 
 **KyoSabi** is a web GUI frontend for [rustypaste](https://github.com/orhun/rustypaste).
 
+Its name originates from the concatenation of **共有** (`kyōyū` -> share) and **錆** (`sabi` -> rust).
+
 <img width="1280" height="640" alt="kyosabi" src="https://github.com/user-attachments/assets/f5f0fb0d-ba39-48fc-b35e-43f9f672bc01" />
 
 <p align="center">
