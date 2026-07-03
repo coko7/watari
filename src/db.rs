@@ -1,14 +1,14 @@
-use std::str::FromStr;
-
 use anyhow::Context;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 
 pub type Db = SqlitePool;
 
 pub async fn connect(database_path: &str) -> anyhow::Result<Db> {
-    let opts = SqliteConnectOptions::from_str(&format!("sqlite://{database_path}"))
-        .with_context(|| format!("invalid DB_PATH {database_path:?}"))?
-        .create_if_missing(true);
+    // `SqliteConnectOptions::from_str("sqlite://...")` parses the path as a
+    // URL, which mangles relative paths like `./dev.db` (`.` gets read as
+    // the URL host, so it ends up trying to open `/dev.db` at the filesystem
+    // root). `.filename()` takes the path as a plain filesystem path instead.
+    let opts = SqliteConnectOptions::new().filename(database_path).create_if_missing(true);
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
