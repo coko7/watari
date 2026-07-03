@@ -1,4 +1,4 @@
-# kyosabi
+# 🔐 KyoSabi 共錆
 
 A web GUI for [rustypaste](https://github.com/orhun/rustypaste) that adds OIDC
 SSO, per-group token mapping, and optional client-side (WebCrypto) password
