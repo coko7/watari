@@ -55,16 +55,29 @@ pub struct LoadMoreTemplate {
 }
 
 fn is_admin(state: &AppState, token_id: &str) -> bool {
-    state.token_map.get(token_id).map(|b| b.is_admin()).unwrap_or(false)
+    state
+        .token_map
+        .get(token_id)
+        .map(|b| b.is_admin())
+        .unwrap_or(false)
 }
 
 fn can_delete(state: &AppState, token_id: &str) -> bool {
-    state.token_map.get(token_id).map(|b| b.has(Permission::Delete)).unwrap_or(false)
+    state
+        .token_map
+        .get(token_id)
+        .map(|b| b.has(Permission::Delete))
+        .unwrap_or(false)
 }
 
-fn layout_for(state: &AppState, token: &CsrfToken, session: &UserSession) -> anyhow::Result<Layout> {
-    let csrf_token =
-        token.authenticity_token().map_err(|e| anyhow::anyhow!("csrf token error: {e}"))?;
+fn layout_for(
+    state: &AppState,
+    token: &CsrfToken,
+    session: &UserSession,
+) -> anyhow::Result<Layout> {
+    let csrf_token = token
+        .authenticity_token()
+        .map_err(|e| anyhow::anyhow!("csrf token error: {e}"))?;
     Ok(Layout::for_user(
         csrf_token,
         state.config.pbkdf2_iterations,

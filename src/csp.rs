@@ -17,10 +17,14 @@ const CSP: &str = "default-src 'self'; \
 
 pub async fn csp_middleware(req: Request, next: Next) -> Response {
     let mut res = next.run(req).await;
-    res.headers_mut()
-        .insert(axum::http::header::CONTENT_SECURITY_POLICY, HeaderValue::from_static(CSP));
-    res.headers_mut()
-        .insert(axum::http::header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+    res.headers_mut().insert(
+        axum::http::header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(CSP),
+    );
+    res.headers_mut().insert(
+        axum::http::header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
     res.headers_mut().insert(
         axum::http::HeaderName::from_static("x-frame-options"),
         HeaderValue::from_static("DENY"),

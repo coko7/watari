@@ -24,7 +24,10 @@ pub enum RustypasteError {
     #[error("failed to reach rustypaste: {0}")]
     Request(#[from] reqwest::Error),
     #[error("rustypaste rejected the request ({status}): {body}")]
-    Upstream { status: reqwest::StatusCode, body: String },
+    Upstream {
+        status: reqwest::StatusCode,
+        body: String,
+    },
 }
 
 pub enum FileMode {
@@ -39,7 +42,10 @@ pub enum UrlMode {
 
 impl RustypasteClient {
     pub fn new(http: reqwest::Client, internal_base_url: String) -> Self {
-        Self { http, internal_base_url: internal_base_url.trim_end_matches('/').to_string() }
+        Self {
+            http,
+            internal_base_url: internal_base_url.trim_end_matches('/').to_string(),
+        }
     }
 
     /// Uploads raw bytes (file upload or a text paste wrapped as a file).
@@ -127,7 +133,10 @@ impl RustypasteClient {
 /// for use with [`RustypasteClient::delete`].
 pub fn filename_from_paste_url(paste_url: &str) -> Option<String> {
     let url = url::Url::parse(paste_url).ok()?;
-    url.path_segments()?.next_back().filter(|s| !s.is_empty()).map(str::to_string)
+    url.path_segments()?
+        .next_back()
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
 }
 
 #[cfg(test)]

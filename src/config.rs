@@ -68,8 +68,8 @@ impl AppConfig {
     pub fn from_env() -> Result<Self> {
         let session_secret_hex = required("SESSION_SECRET")
             .context("SESSION_SECRET is required: 32+ bytes of hex-encoded random data, e.g. `openssl rand -hex 32`")?;
-        let session_secret = hex::decode(&session_secret_hex)
-            .context("SESSION_SECRET must be valid hex")?;
+        let session_secret =
+            hex::decode(&session_secret_hex).context("SESSION_SECRET must be valid hex")?;
         if session_secret.len() < 32 {
             bail!(
                 "SESSION_SECRET must decode to at least 32 bytes, got {}",

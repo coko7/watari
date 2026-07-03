@@ -24,11 +24,23 @@ struct FlashTemplate {
 }
 
 fn flash_ok(message: impl Into<String>, url: String) -> Response {
-    Tpl(FlashTemplate { ok: true, message: message.into(), url: Some(url) }).into_response()
+    Tpl(FlashTemplate {
+        ok: true,
+        message: message.into(),
+        url: Some(url),
+    })
+    .into_response()
 }
 
 fn flash_err(message: impl Into<String>) -> Response {
-    (StatusCode::UNPROCESSABLE_ENTITY, Tpl(FlashTemplate { ok: false, message: message.into(), url: None }))
+    (
+        StatusCode::UNPROCESSABLE_ENTITY,
+        Tpl(FlashTemplate {
+            ok: false,
+            message: message.into(),
+            url: None,
+        }),
+    )
         .into_response()
 }
 
@@ -40,7 +52,9 @@ fn is_encrypted(bytes: &[u8]) -> bool {
 }
 
 fn humantime_expire(raw: &Option<String>) -> Option<String> {
-    raw.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    raw.as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 struct ParsedUpload {
@@ -100,13 +114,19 @@ async fn parse_multipart(mut multipart: Multipart) -> Result<ParsedUpload, AppEr
     }
 
     if !have_file && out.url.is_none() {
-        return Err(AppError::BadRequest("no file, text, or URL content was submitted".into()));
+        return Err(AppError::BadRequest(
+            "no file, text, or URL content was submitted".into(),
+        ));
     }
 
     Ok(out)
 }
 
-fn permission_check(state: &AppState, session: &UserSession, perm: Permission) -> Result<String, AppError> {
+fn permission_check(
+    state: &AppState,
+    session: &UserSession,
+    perm: Permission,
+) -> Result<String, AppError> {
     match state.token_map.get(&session.token_id) {
         Some(binding) if binding.has(perm) => Ok(binding.token.clone()),
         _ => Err(AppError::Forbidden),
@@ -123,7 +143,10 @@ async fn log_upload(
     expire: &Option<String>,
 ) {
     let now = crate::session::now_unix();
-    let expires_at = expire.as_deref().and_then(|e| humantime::parse_duration(e).ok()).map(|d| now + d.as_secs() as i64);
+    let expires_at = expire
+        .as_deref()
+        .and_then(|e| humantime::parse_duration(e).ok())
+        .map(|d| now + d.as_secs() as i64);
     let res = db::insert_upload_log(
         &state.db,
         db::NewUploadLog {
@@ -169,15 +192,35 @@ pub async fn upload(
         .or(parsed.file_name)
         .unwrap_or_else(|| "upload.bin".to_string());
     let encrypted = is_encrypted(&parsed.bytes);
-    let mode = if parsed.oneshot { FileMode::OneShot } else { FileMode::Normal };
+    let mode = if parsed.oneshot {
+        FileMode::OneShot
+    } else {
+        FileMode::Normal
+    };
 
     match state
         .rustypaste
-        .upload_file(&token, mode, &filename, parsed.bytes, &parsed.content_type, humantime_expire(&parsed.expire).as_deref())
+        .upload_file(
+            &token,
+            mode,
+            &filename,
+            parsed.bytes,
+            &parsed.content_type,
+            humantime_expire(&parsed.expire).as_deref(),
+        )
         .await
     {
         Ok(url) => {
-            log_upload(&state, &session, &filename, &url, "file", encrypted, &parsed.expire).await;
+            log_upload(
+                &state,
+                &session,
+                &filename,
+                &url,
+                "file",
+                encrypted,
+                &parsed.expire,
+            )
+            .await;
             flash_ok("Uploaded successfully.", url)
         }
         Err(e) => flash_err(upstream_message(e)),
@@ -204,17 +247,39 @@ pub async fn paste(
         Err(e) => return e.into_response(),
     };
 
-    let filename = parsed.override_filename.unwrap_or_else(|| "paste.txt".to_string());
+    let filename = parsed
+        .override_filename
+        .unwrap_or_else(|| "paste.txt".to_string());
     let encrypted = is_encrypted(&parsed.bytes);
-    let mode = if parsed.oneshot { FileMode::OneShot } else { FileMode::Normal };
+    let mode = if parsed.oneshot {
+        FileMode::OneShot
+    } else {
+        FileMode::Normal
+    };
 
     match state
         .rustypaste
-        .upload_file(&token, mode, &filename, parsed.bytes, &parsed.content_type, humantime_expire(&parsed.expire).as_deref())
+        .upload_file(
+            &token,
+            mode,
+            &filename,
+            parsed.bytes,
+            &parsed.content_type,
+            humantime_expire(&parsed.expire).as_deref(),
+        )
         .await
     {
         Ok(url) => {
-            log_upload(&state, &session, &filename, &url, "paste", encrypted, &parsed.expire).await;
+            log_upload(
+                &state,
+                &session,
+                &filename,
+                &url,
+                "paste",
+                encrypted,
+                &parsed.expire,
+            )
+            .await;
             flash_ok("Pasted successfully.", url)
         }
         Err(e) => flash_err(upstream_message(e)),
@@ -249,26 +314,65 @@ pub async fn shorten(
     // as an encrypted *file* (kyosabi.md §9.1's ".enc" convention), so it's
     // handled exactly like an upload.
     if let Some(url) = parsed.url {
-        let mode = if parsed.oneshot { UrlMode::OneShotUrl } else { UrlMode::Shorten };
-        return match state.rustypaste.shorten(&token, mode, &url, expire.as_deref()).await {
+        let mode = if parsed.oneshot {
+            UrlMode::OneShotUrl
+        } else {
+            UrlMode::Shorten
+        };
+        return match state
+            .rustypaste
+            .shorten(&token, mode, &url, expire.as_deref())
+            .await
+        {
             Ok(short_url) => {
-                log_upload(&state, &session, &url, &short_url, "url", false, &parsed.expire).await;
+                log_upload(
+                    &state,
+                    &session,
+                    &url,
+                    &short_url,
+                    "url",
+                    false,
+                    &parsed.expire,
+                )
+                .await;
                 flash_ok("Shortened successfully.", short_url)
             }
             Err(e) => flash_err(upstream_message(e)),
         };
     }
 
-    let filename = parsed.override_filename.unwrap_or_else(|| "shortened-url.enc".to_string());
+    let filename = parsed
+        .override_filename
+        .unwrap_or_else(|| "shortened-url.enc".to_string());
     let encrypted = is_encrypted(&parsed.bytes);
-    let mode = if parsed.oneshot { FileMode::OneShot } else { FileMode::Normal };
+    let mode = if parsed.oneshot {
+        FileMode::OneShot
+    } else {
+        FileMode::Normal
+    };
     match state
         .rustypaste
-        .upload_file(&token, mode, &filename, parsed.bytes, &parsed.content_type, expire.as_deref())
+        .upload_file(
+            &token,
+            mode,
+            &filename,
+            parsed.bytes,
+            &parsed.content_type,
+            expire.as_deref(),
+        )
         .await
     {
         Ok(url) => {
-            log_upload(&state, &session, &filename, &url, "url", encrypted, &parsed.expire).await;
+            log_upload(
+                &state,
+                &session,
+                &filename,
+                &url,
+                "url",
+                encrypted,
+                &parsed.expire,
+            )
+            .await;
             flash_ok("Shortened successfully.", url)
         }
         Err(e) => flash_err(upstream_message(e)),
@@ -278,7 +382,9 @@ pub async fn shorten(
 fn upstream_message(err: RustypasteError) -> String {
     tracing::warn!(error = ?err, "rustypaste rejected a request");
     match err {
-        RustypasteError::Upstream { status, .. } => format!("rustypaste rejected the request ({status})"),
+        RustypasteError::Upstream { status, .. } => {
+            format!("rustypaste rejected the request ({status})")
+        }
         RustypasteError::Request(_) => "could not reach rustypaste".to_string(),
     }
 }
@@ -305,7 +411,8 @@ pub async fn delete_paste(
     };
 
     let Some(filename) = crate::rustypaste::filename_from_paste_url(&row.paste_url) else {
-        return AppError::Internal(anyhow::anyhow!("stored paste_url has no filename segment")).into_response();
+        return AppError::Internal(anyhow::anyhow!("stored paste_url has no filename segment"))
+            .into_response();
     };
 
     if let Err(e) = state.rustypaste.delete(&token, &filename).await {
@@ -333,9 +440,20 @@ pub async fn list_pastes(
     let has_more = db_rows.len() as i64 == PAGE_SIZE;
     let next_cursor = db_rows.last().map(|r| r.created_at);
     let rows: Vec<UploadRowView> = db_rows.iter().map(UploadRowView::from).collect();
-    let can_delete = state.token_map.get(&session.token_id).map(|b| b.has(Permission::Delete)).unwrap_or(false);
+    let can_delete = state
+        .token_map
+        .get(&session.token_id)
+        .map(|b| b.has(Permission::Delete))
+        .unwrap_or(false);
 
-    let rows_html = PasteRowsTemplate { rows, can_delete }.render().unwrap_or_default();
-    let load_more_html = LoadMoreTemplate { has_more, next_cursor }.render().unwrap_or_default();
+    let rows_html = PasteRowsTemplate { rows, can_delete }
+        .render()
+        .unwrap_or_default();
+    let load_more_html = LoadMoreTemplate {
+        has_more,
+        next_cursor,
+    }
+    .render()
+    .unwrap_or_default();
     axum::response::Html(format!("{rows_html}{load_more_html}")).into_response()
 }

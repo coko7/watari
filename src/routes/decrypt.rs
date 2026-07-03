@@ -31,10 +31,19 @@ pub async fn page(
 ) -> Response {
     let csrf = match csrf_token.authenticity_token() {
         Ok(t) => t,
-        Err(e) => return AppError::Internal(anyhow::anyhow!("csrf token error: {e}")).into_response(),
+        Err(e) => {
+            return AppError::Internal(anyhow::anyhow!("csrf token error: {e}")).into_response();
+        }
     };
     let layout = Layout::anonymous(csrf, state.config.pbkdf2_iterations);
-    (csrf_token, Tpl(DecryptTemplate { layout, url: query.url })).into_response()
+    (
+        csrf_token,
+        Tpl(DecryptTemplate {
+            layout,
+            url: query.url,
+        }),
+    )
+        .into_response()
 }
 
 /// `GET /decrypt/fetch?url=...` — the actual SSRF-guarded proxy. This is a
@@ -42,7 +51,8 @@ pub async fn page(
 /// invariants"): `url` must be prefixed by `RUSTYPASTE_PUBLIC_URL`, full stop.
 pub async fn fetch(State(state): State<AppState>, Query(query): Query<DecryptQuery>) -> Response {
     if !query.url.starts_with(&state.config.rustypaste_public_url) {
-        return AppError::BadRequest("url must point at this rustypaste instance".into()).into_response();
+        return AppError::BadRequest("url must point at this rustypaste instance".into())
+            .into_response();
     }
 
     // Rewrite to the internal Docker-network URL so the fetch doesn't leave
@@ -56,7 +66,9 @@ pub async fn fetch(State(state): State<AppState>, Query(query): Query<DecryptQue
 
     let resp = match state.http.get(&internal_url).send().await {
         Ok(r) => r,
-        Err(e) => return AppError::Upstream(format!("could not reach rustypaste: {e}")).into_response(),
+        Err(e) => {
+            return AppError::Upstream(format!("could not reach rustypaste: {e}")).into_response();
+        }
     };
 
     let status = resp.status();
@@ -70,7 +82,10 @@ pub async fn fetch(State(state): State<AppState>, Query(query): Query<DecryptQue
 
     let bytes = match resp.bytes().await {
         Ok(b) => b,
-        Err(e) => return AppError::Upstream(format!("failed reading rustypaste response: {e}")).into_response(),
+        Err(e) => {
+            return AppError::Upstream(format!("failed reading rustypaste response: {e}"))
+                .into_response();
+        }
     };
 
     ([(header::CONTENT_TYPE, "application/octet-stream")], bytes).into_response()

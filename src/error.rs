@@ -47,6 +47,13 @@ impl IntoResponse for AppError {
             AppError::Internal(_) => "internal server error".to_string(),
             other => other.to_string(),
         };
-        (status, Tpl(ErrorTemplate { status: status.as_u16(), message })).into_response()
+        (
+            status,
+            Tpl(ErrorTemplate {
+                status: status.as_u16(),
+                message,
+            }),
+        )
+            .into_response()
     }
 }

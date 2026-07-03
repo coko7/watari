@@ -73,7 +73,10 @@ impl std::fmt::Debug for TokenBinding {
 
 enum Rule {
     /// Matches if the user belongs to *any* of `groups` (first-match-wins).
-    Match { groups: HashSet<String>, token_id: String },
+    Match {
+        groups: HashSet<String>,
+        token_id: String,
+    },
     /// Terminal rule: either falls through to a named token, or denies.
     Default(Option<String>),
 }
@@ -126,7 +129,10 @@ impl TokenMap {
                     if !tokens.contains_key(&token_id) {
                         bail!("bindings[{i}] references unknown token_id {token_id:?}");
                     }
-                    rules.push(Rule::Match { groups: m.groups.into_iter().collect(), token_id });
+                    rules.push(Rule::Match {
+                        groups: m.groups.into_iter().collect(),
+                        token_id,
+                    });
                 }
                 (None, None, Some(default)) => {
                     if default == "deny" {
@@ -187,7 +193,9 @@ impl TokenMap {
                     .rules
                     .iter()
                     .filter_map(|rule| match rule {
-                        Rule::Match { groups, token_id } if token_id == &token.id => Some(groups.clone()),
+                        Rule::Match { groups, token_id } if token_id == &token.id => {
+                            Some(groups.clone())
+                        }
                         _ => None,
                     })
                     .flatten()
@@ -201,11 +209,18 @@ impl TokenMap {
                 }
                 groups.sort();
 
-                let mut permissions: Vec<String> =
-                    token.permissions.iter().map(|p| format!("{p:?}").to_lowercase()).collect();
+                let mut permissions: Vec<String> = token
+                    .permissions
+                    .iter()
+                    .map(|p| format!("{p:?}").to_lowercase())
+                    .collect();
                 permissions.sort();
 
-                BindingView { token_id: token.id.clone(), groups, permissions }
+                BindingView {
+                    token_id: token.id.clone(),
+                    groups,
+                    permissions,
+                }
             })
             .collect();
         views.sort_by(|a, b| a.token_id.cmp(&b.token_id));

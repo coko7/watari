@@ -28,7 +28,9 @@ use crate::state::AppState;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
         .init();
 
     let config = config::AppConfig::from_env()?;
@@ -40,10 +42,13 @@ async fn main() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("failed to load token bindings: {e}"))?;
 
     let http = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(config.rustypaste_timeout_secs))
+        .timeout(std::time::Duration::from_secs(
+            config.rustypaste_timeout_secs,
+        ))
         .build()?;
 
-    let rustypaste = rustypaste::RustypasteClient::new(http.clone(), config.rustypaste_internal_url.clone());
+    let rustypaste =
+        rustypaste::RustypasteClient::new(http.clone(), config.rustypaste_internal_url.clone());
 
     let oidc = oidc::OidcContext::discover(
         &http,
@@ -90,7 +95,11 @@ async fn main() -> anyhow::Result<()> {
     let addr = format!("0.0.0.0:{}", state.config.app_port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!(%addr, "listening");
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

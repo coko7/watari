@@ -42,9 +42,15 @@ pub fn set_oidc_state_cookie(jar: PrivateCookieJar, state: &OidcState) -> Privat
 pub fn take_oidc_state_cookie(jar: PrivateCookieJar) -> (PrivateCookieJar, Option<OidcState>) {
     let raw = jar.get(OIDC_STATE_COOKIE).map(|c| c.value().to_string());
     let jar = jar.remove(Cookie::from(OIDC_STATE_COOKIE));
-    let state = raw.and_then(|v| serde_json::from_str::<OidcState>(&v).ok()).and_then(|s| {
-        if now_unix() - s.created_at > OIDC_STATE_TTL_SECONDS { None } else { Some(s) }
-    });
+    let state = raw
+        .and_then(|v| serde_json::from_str::<OidcState>(&v).ok())
+        .and_then(|s| {
+            if now_unix() - s.created_at > OIDC_STATE_TTL_SECONDS {
+                None
+            } else {
+                Some(s)
+            }
+        });
     (jar, state)
 }
 
@@ -87,9 +93,15 @@ impl IntoResponse for RedirectToLogin {
 impl FromRequestParts<AppState> for UserSession {
     type Rejection = RedirectToLogin;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let jar = CookieJar::from_headers(&parts.headers);
-        let session_id = jar.get(SESSION_COOKIE).map(|c| c.value().to_string()).ok_or(RedirectToLogin)?;
+        let session_id = jar
+            .get(SESSION_COOKIE)
+            .map(|c| c.value().to_string())
+            .ok_or(RedirectToLogin)?;
 
         let row = db::get_session(&state.db, &session_id)
             .await
@@ -105,9 +117,10 @@ impl FromRequestParts<AppState> for UserSession {
 
         // Best-effort silent refresh (kyosabi.md §6.6). If it fails, the spec
         // calls for invalidating the session and sending the user to login.
-        if let (Some(refresh_token), Some(access_expires_at)) =
-            (row.oidc_refresh_token.as_deref(), row.oidc_access_token_expires_at)
-            && access_expires_at - now < 60
+        if let (Some(refresh_token), Some(access_expires_at)) = (
+            row.oidc_refresh_token.as_deref(),
+            row.oidc_access_token_expires_at,
+        ) && access_expires_at - now < 60
         {
             match state.oidc.refresh(&state.http, refresh_token).await {
                 Ok(refreshed) => {

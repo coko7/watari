@@ -8,7 +8,9 @@ pub async fn connect(database_path: &str) -> anyhow::Result<Db> {
     // URL, which mangles relative paths like `./dev.db` (`.` gets read as
     // the URL host, so it ends up trying to open `/dev.db` at the filesystem
     // root). `.filename()` takes the path as a plain filesystem path instead.
-    let opts = SqliteConnectOptions::new().filename(database_path).create_if_missing(true);
+    let opts = SqliteConnectOptions::new()
+        .filename(database_path)
+        .create_if_missing(true);
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)

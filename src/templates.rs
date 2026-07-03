@@ -33,10 +33,25 @@ pub struct Layout {
 
 impl Layout {
     pub fn anonymous(csrf_token: String, pbkdf2_iterations: u32) -> Self {
-        Self { csrf_token, pbkdf2_iterations, user_email: None, is_admin: false }
+        Self {
+            csrf_token,
+            pbkdf2_iterations,
+            user_email: None,
+            is_admin: false,
+        }
     }
 
-    pub fn for_user(csrf_token: String, pbkdf2_iterations: u32, user_email: String, is_admin: bool) -> Self {
-        Self { csrf_token, pbkdf2_iterations, user_email: Some(user_email), is_admin }
+    pub fn for_user(
+        csrf_token: String,
+        pbkdf2_iterations: u32,
+        user_email: String,
+        is_admin: bool,
+    ) -> Self {
+        Self {
+            csrf_token,
+            pbkdf2_iterations,
+            user_email: Some(user_email),
+            is_admin,
+        }
     }
 }

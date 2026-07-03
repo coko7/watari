@@ -24,16 +24,27 @@ pub async fn tokens_page(
     session: UserSession,
     csrf_token: CsrfToken,
 ) -> Response {
-    let is_admin = state.token_map.get(&session.token_id).map(|b| b.is_admin()).unwrap_or(false);
+    let is_admin = state
+        .token_map
+        .get(&session.token_id)
+        .map(|b| b.is_admin())
+        .unwrap_or(false);
     if !is_admin {
         return AppError::Forbidden.into_response();
     }
 
     let csrf = match csrf_token.authenticity_token() {
         Ok(t) => t,
-        Err(e) => return AppError::Internal(anyhow::anyhow!("csrf token error: {e}")).into_response(),
+        Err(e) => {
+            return AppError::Internal(anyhow::anyhow!("csrf token error: {e}")).into_response();
+        }
     };
-    let layout = Layout::for_user(csrf, state.config.pbkdf2_iterations, session.email.clone(), true);
+    let layout = Layout::for_user(
+        csrf,
+        state.config.pbkdf2_iterations,
+        session.email.clone(),
+        true,
+    );
     let bindings = state.token_map.bindings_view();
 
     (csrf_token, Tpl(AdminTokensTemplate { layout, bindings })).into_response()
