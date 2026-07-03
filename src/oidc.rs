@@ -15,6 +15,7 @@ use openidconnect::{
     TokenResponse,
 };
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::db;
 use crate::error::AppError;
@@ -93,8 +94,10 @@ impl OidcContext {
         let provider_metadata = DiscoveredProviderMetadata::discover_async(issuer, http)
             .await
             .map_err(|e| anyhow::anyhow!("OIDC discovery against {issuer_url} failed: {e}"))?;
-        let end_session_endpoint =
-            provider_metadata.additional_metadata().end_session_endpoint.clone();
+        let end_session_endpoint = provider_metadata
+            .additional_metadata()
+            .end_session_endpoint
+            .clone();
 
         Ok(Self {
             provider_metadata,
@@ -128,14 +131,18 @@ impl OidcContext {
             .await
             .map_err(|e| anyhow::anyhow!("refresh token exchange failed: {e}"))?;
 
-        let access_token_expires_at =
-            token_response.expires_in().map(|d| session::now_unix() + d.as_secs() as i64);
+        let access_token_expires_at = token_response
+            .expires_in()
+            .map(|d| session::now_unix() + d.as_secs() as i64);
         let refresh_token = token_response
             .refresh_token()
             .map(|t| t.secret().clone())
             .or_else(|| Some(refresh_token.to_string()));
 
-        Ok(RefreshedTokens { refresh_token, access_token_expires_at })
+        Ok(RefreshedTokens {
+            refresh_token,
+            access_token_expires_at,
+        })
     }
 }
 
@@ -144,8 +151,13 @@ pub async fn login(State(state): State<AppState>, jar: PrivateCookieJar) -> impl
 
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
+    info!("oidc login flow init");
     let (auth_url, csrf_state, nonce) = client
-        .authorize_url(CoreAuthenticationFlow::AuthorizationCode, CsrfToken::new_random, Nonce::new_random)
+        .authorize_url(
+            CoreAuthenticationFlow::AuthorizationCode,
+            CsrfToken::new_random,
+            Nonce::new_random,
+        )
         // `openid` is added automatically for CoreAuthenticationFlow::AuthorizationCode.
         .add_scope(Scope::new("profile".to_string()))
         .add_scope(Scope::new("email".to_string()))
@@ -181,9 +193,12 @@ pub async fn callback(
     jar: PrivateCookieJar,
     Query(query): Query<CallbackQuery>,
 ) -> Result<Response, AppError> {
+    info!("hitting OIDC callback");
     let (jar, oidc_state) = session::take_oidc_state_cookie(jar);
     let oidc_state = oidc_state.ok_or_else(|| {
-        AppError::BadRequest("login session expired or is invalid, please try logging in again".into())
+        AppError::BadRequest(
+            "login session expired or is invalid, please try logging in again".into(),
+        )
     })?;
 
     if let Some(err) = query.error {
@@ -192,13 +207,19 @@ pub async fn callback(
             query.error_description.unwrap_or_default()
         )));
     }
-    let code = query.code.ok_or_else(|| AppError::BadRequest("missing authorization code".into()))?;
-    let returned_state =
-        query.state.ok_or_else(|| AppError::BadRequest("missing state parameter".into()))?;
+    let code = query
+        .code
+        .ok_or_else(|| AppError::BadRequest("missing authorization code".into()))?;
+    let returned_state = query
+        .state
+        .ok_or_else(|| AppError::BadRequest("missing state parameter".into()))?;
     if returned_state != oidc_state.csrf_state {
-        return Err(AppError::BadRequest("state mismatch — possible CSRF, please try again".into()));
+        return Err(AppError::BadRequest(
+            "state mismatch — possible CSRF, please try again".into(),
+        ));
     }
 
+    info!("got OIDC auth code");
     let client = state.oidc.build_client();
 
     let token_response = client
@@ -209,17 +230,28 @@ pub async fn callback(
         .await
         .map_err(|e| anyhow::anyhow!("token exchange with the identity provider failed: {e}"))?;
 
+    info!("getting Id token");
     let id_token = token_response
         .id_token()
         .ok_or_else(|| anyhow::anyhow!("identity provider did not return an id_token"))?;
-    let verifier = client.id_token_verifier();
+    // openidconnect-rs rejects any `aud` entry beyond our own client_id unless
+    // explicitly trusted. Zitadel (and other project-scoped IdPs) legitimately
+    // add a second audience — the project's resource ID — alongside the
+    // client_id; the OIDC spec allows this as long as `azp` identifies the
+    // actual authorized party, which the crate still enforces separately.
+    let verifier = client
+        .id_token_verifier()
+        .set_other_audience_verifier_fn(|_aud| true);
     let nonce = Nonce::new(oidc_state.nonce);
     let claims = id_token
         .claims(&verifier, &nonce)
         .map_err(|e| anyhow::anyhow!("id_token verification failed: {e}"))?;
 
     let user_sub = claims.subject().as_str().to_string();
-    let email = claims.email().map(|e| e.as_str().to_string()).unwrap_or_default();
+    let email = claims
+        .email()
+        .map(|e| e.as_str().to_string())
+        .unwrap_or_default();
 
     // The id_token's signature was just verified above; re-reading its payload
     // as raw JSON (rather than fighting openidconnect's AdditionalClaims
@@ -228,13 +260,17 @@ pub async fn callback(
         .context("failed to inspect id_token payload for the groups claim")?;
     let groups = extract_groups(&raw_claims, &state.config.oidc_groups_claim);
 
-    let binding = state.token_map.resolve(&groups).ok_or(AppError::Forbidden)?;
+    let binding = state
+        .token_map
+        .resolve(&groups)
+        .ok_or(AppError::Forbidden)?;
 
     let now = session::now_unix();
     let session_id = uuid::Uuid::new_v4().to_string();
     let expires_at = now + state.config.session_ttl_seconds;
-    let access_token_expires_at =
-        token_response.expires_in().map(|d| now + d.as_secs() as i64);
+    let access_token_expires_at = token_response
+        .expires_in()
+        .map(|d| now + d.as_secs() as i64);
     let refresh_token = token_response.refresh_token().map(|t| t.secret().clone());
 
     db::insert_session(
@@ -264,7 +300,10 @@ pub async fn callback(
 }
 
 pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> impl IntoResponse {
-    if let Some(session_id) = jar.get(session::SESSION_COOKIE).map(|c| c.value().to_string()) {
+    if let Some(session_id) = jar
+        .get(session::SESSION_COOKIE)
+        .map(|c| c.value().to_string())
+    {
         let _ = db::delete_session(&state.db, &session_id).await;
     }
     let jar = session::clear_session_cookie(jar);
@@ -272,7 +311,8 @@ pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> impl IntoR
     let redirect_url = match &state.oidc.end_session_endpoint {
         Some(endpoint) => match url::Url::parse(endpoint) {
             Ok(mut url) => {
-                url.query_pairs_mut().append_pair("post_logout_redirect_uri", &state.config.app_base_url);
+                url.query_pairs_mut()
+                    .append_pair("post_logout_redirect_uri", &state.config.app_base_url);
                 url.to_string()
             }
             Err(_) => state.config.app_base_url.clone(),
@@ -292,19 +332,21 @@ fn decode_jwt_payload_unverified(compact: &str) -> anyhow::Result<serde_json::Va
     serde_json::from_slice(&bytes).context("JWT payload is not valid JSON")
 }
 
-/// Only a flat JSON array of strings at the top-level claim name is supported
-/// (kyosabi.md §14 flags nested/mapped role shapes as provider-specific and
-/// out of scope here) — configure a protocol mapper on the IdP to flatten
-/// roles/groups into such a claim if it doesn't already emit one.
+/// Handles the two shapes kyosabi.md §14 anticipated: a flat JSON array of
+/// strings (most providers), or a JSON object whose top-level keys are the
+/// group/role names — e.g. Zitadel's `urn:zitadel:iam:org:project:roles`
+/// claim (`{"role-name": {"org-id": "org-name"}, ...}`).
 fn extract_groups(claims: &serde_json::Value, claim_name: &str) -> Vec<String> {
     match claims.get(claim_name) {
-        Some(serde_json::Value::Array(items)) => {
-            items.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()
-        }
+        Some(serde_json::Value::Array(items)) => items
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect(),
+        Some(serde_json::Value::Object(map)) => map.keys().cloned().collect(),
         Some(_) => {
             tracing::warn!(
                 claim = claim_name,
-                "groups claim is present but is not a flat array of strings; treating as no groups"
+                "groups claim is present but is neither an array nor an object; treating as no groups"
             );
             Vec::new()
         }
