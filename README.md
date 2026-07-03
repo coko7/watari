@@ -1,8 +1,18 @@
 # ☀️ KyoSabi
 
+**KyoSabi** is a web GUI frontend for [rustypaste](https://github.com/orhun/rustypaste).
+
 <img width="1280" height="640" alt="kyosabi" src="https://github.com/user-attachments/assets/f5f0fb0d-ba39-48fc-b35e-43f9f672bc01" />
 
-**KyoSabi** is a web GUI frontend for [rustypaste](https://github.com/orhun/rustypaste).
+<p align="center">
+    <a href="https://crates.io/crates/kyosabi"><img src="https://img.shields.io/crates/v/kyosabi.svg" alt="Crates info"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/coko7/kyosabi?color=blue" alt="License: MIT"></a>
+    <img src="https://img.shields.io/github/languages/top/coko7/kyosabi?color=orange" alt="Rust">
+    <a href="https://github.com/coko7/kyosabi/actions/workflows/rust.yml"><img src="https://github.com/coko7/kyosabi/actions/workflows/rust.yml/badge.svg" alt="Tests"></a>
+</p>
+
+> [!WARNING]
+> 🚧 **Early stages — big work in progress.** Expect rough edges and breaking changes. 🚧
 
 On top of providing a GUI, it comes with some additional features:
 
