@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/coko7/watari/compare/watari-v0.3.0...watari-v0.4.0) (2026-07-06)
+
+
+### Features
+
+* **upload:** add drag-and-drop file upload with size display ([7449a43](https://github.com/coko7/watari/commit/7449a43b9d5cd89622c40425bc400add3f364ce2))
+
 ## [0.3.0](https://github.com/coko7/watari/compare/watari-v0.2.0...watari-v0.3.0) (2026-07-06)
 
 
