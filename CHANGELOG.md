@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/coko7/watari/compare/watari-v0.2.0...watari-v0.3.0) (2026-07-06)
+
+
+### Features
+
+* implement KyoSabi per kyosabi.md spec ([b7adf2d](https://github.com/coko7/watari/commit/b7adf2d2b2aa7e859b9817fbb039f49a87418e2c))
+* **oidc:** support Zitadel and other multi-audience OIDC providers ([2328727](https://github.com/coko7/watari/commit/2328727d3c8ef046916a1094d7741e6d2e6cf556))
+
+
+### Bug Fixes
+
+* **db:** handle relative paths in sqlite connection ([5806790](https://github.com/coko7/watari/commit/58067903e9dfbf8a49f0dd21428debefbec1db39))
+
 ## v0.2.0
 
 Project renamed from **KyoSabi** to **Watari**. No functional changes to the app itself — this release is naming, docs, and CI groundwork.
