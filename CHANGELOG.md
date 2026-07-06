@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/coko7/watari/compare/watari-v0.4.0...watari-v0.5.0) (2026-07-06)
+
+
+### Features
+
+* **ui:** redesign layout with sidebar navigation and dark mode ([fc24101](https://github.com/coko7/watari/commit/fc24101cfa0d2e5fb35e4d09f71fd2e85026ec0e))
+
 ## [0.4.0](https://github.com/coko7/watari/compare/watari-v0.3.0...watari-v0.4.0) (2026-07-06)
 
 
