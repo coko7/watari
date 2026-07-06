@@ -2,10 +2,12 @@
 
 **Watari** is a web GUI frontend for [rustypaste](https://github.com/orhun/rustypaste).
 
-<img width="1280" height="640" alt="watari" src="https://github.com/user-attachments/assets/f5f0fb0d-ba39-48fc-b35e-43f9f672bc01" />
+The project name comes from the japanese word **渡り** (`watari`, also written as **ワタリ** in [Katakana](https://en.wikipedia.org/wiki/Katakana)) which means ["crossing, passage, transit"](https://jisho.org/search/%22watari%22) and symbolizes the relationship with **rustypaste**.
+
+<img alt="watari banner image" src="https://github.com/user-attachments/assets/817412d7-eb96-485a-8316-67f4af6cf578" />
 
 <p align="center">
-    <a href="https://crates.io/crates/watari"><img src="https://img.shields.io/crates/v/watari.svg" alt="Crates info"></a>
+    <a href="https://github.com/coko7/watari/releases/latest"><img src="https://img.shields.io/github/v/release/coko7/watari" alt="Release info"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/coko7/watari?color=blue" alt="License: MIT"></a>
     <img src="https://img.shields.io/github/languages/top/coko7/watari?color=orange" alt="Rust">
     <a href="https://github.com/coko7/watari/actions/workflows/rust.yml"><img src="https://github.com/coko7/watari/actions/workflows/rust.yml/badge.svg" alt="Tests"></a>
