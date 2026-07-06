@@ -4,7 +4,7 @@
 
 The project name comes from the japanese word **渡り** (`watari`, also written as **ワタリ** in [Katakana](https://en.wikipedia.org/wiki/Katakana)) which means ["crossing, passage, transit"](https://jisho.org/search/%22watari%22) and symbolizes the relationship with **rustypaste**.
 
-<img alt="watari banner image" src="assets/watari.webp" />
+<img alt="Watari banner image" src="assets/watari.webp" />
 
 <p align="center">
     <a href="https://github.com/coko7/watari/releases/latest"><img src="https://img.shields.io/github/v/release/coko7/watari" alt="Release info"></a>
@@ -25,6 +25,10 @@ On top of providing a GUI, it comes with some additional features:
 All built with a ***based*** technical stack: [axum](https://github.com/tokio-rs/axum) + [Askama](https://github.com/askama-rs/askama) + [HTMX](https://htmx.org/) + [SQLite](https://sqlite.org)
 
 This project has been **vibe-scaffolded** with [Claude](https://claude.ai), you can find the full design here: [`watari.md`](./watari.md)
+
+<p align="center">
+  <img alt="Watari UI screenshot" src="assets/watari-ui-screenshot.webp" />
+</p>
 
 ## Running with Docker Compose (recommended)
 

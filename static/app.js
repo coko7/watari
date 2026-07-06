@@ -5,6 +5,25 @@
 const RPEN_MAGIC = new Uint8Array([0x52, 0x50, 0x45, 0x4e]);
 const RPEN_VERSION = 1;
 
+// --- Theme toggle (persisted in localStorage; falls back to OS preference) ---
+const THEME_KEY = "watari-theme";
+
+function systemTheme() {
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+}
+
+applyTheme(localStorage.getItem(THEME_KEY) || systemTheme());
+
+document.getElementById("theme-toggle")?.addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+});
+
 function pbkdf2Iterations() {
   const meta = document.querySelector('meta[name="pbkdf2-iterations"]');
   return parseInt(meta?.content ?? "310000", 10);
@@ -75,6 +94,11 @@ async function decryptEnvelope(password, envelope) {
   const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
   return new Uint8Array(plaintext);
 }
+
+// --- Highlight the active sidebar link ---
+document.querySelectorAll(".sidebar-nav a").forEach((a) => {
+  if (new URL(a.href).pathname === location.pathname) a.classList.add("active");
+});
 
 // --- Copy-to-clipboard (dashboard rows + post-upload flash) ---
 document.addEventListener("click", (e) => {
