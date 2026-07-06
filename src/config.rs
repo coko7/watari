@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, bail};
+use tracing::debug;
 
 #[derive(Clone)]
 pub struct AppConfig {
@@ -66,10 +67,13 @@ where
 
 impl AppConfig {
     pub fn from_env() -> Result<Self> {
+        debug!("retrieving session secret");
         let session_secret_hex = required("SESSION_SECRET")
             .context("SESSION_SECRET is required: 32+ bytes of hex-encoded random data, e.g. `openssl rand -hex 32`")?;
         let session_secret =
             hex::decode(&session_secret_hex).context("SESSION_SECRET must be valid hex")?;
+
+        debug!("validating session secret length");
         if session_secret.len() < 32 {
             bail!(
                 "SESSION_SECRET must decode to at least 32 bytes, got {}",
@@ -77,6 +81,7 @@ impl AppConfig {
             );
         }
 
+        debug!("creating config struct");
         let config = Self {
             oidc_issuer_url: required("OIDC_ISSUER_URL")?,
             oidc_client_id: required("OIDC_CLIENT_ID")?,

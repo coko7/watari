@@ -1,5 +1,6 @@
 use anyhow::Context;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
+use tracing::debug;
 
 pub type Db = SqlitePool;
 
@@ -12,12 +13,14 @@ pub async fn connect(database_path: &str) -> anyhow::Result<Db> {
         .filename(database_path)
         .create_if_missing(true);
 
+    debug!("opening Sqlite databse");
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
         .connect_with(opts)
         .await
         .context("failed to open sqlite database")?;
 
+    debug!("running DB migrations");
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await

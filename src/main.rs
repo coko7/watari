@@ -21,6 +21,7 @@ use axum_csrf::CsrfConfig;
 use axum_extra::extract::cookie::Key;
 use sha2::{Digest, Sha512};
 use tower_http::services::ServeDir;
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 use crate::state::AppState;
@@ -38,6 +39,7 @@ async fn main() -> anyhow::Result<()> {
 
     let db = db::connect(&config.database_path).await?;
 
+    info!("loading token map");
     let token_map = token_map::TokenMap::load(&config.token_bindings_path)
         .map_err(|e| anyhow::anyhow!("failed to load token bindings: {e}"))?;
 
@@ -47,9 +49,11 @@ async fn main() -> anyhow::Result<()> {
         ))
         .build()?;
 
+    info!("creating new Rustypaste client");
     let rustypaste =
         rustypaste::RustypasteClient::new(http.clone(), config.rustypaste_internal_url.clone());
 
+    info!("performing OIDC discovery");
     let oidc = oidc::OidcContext::discover(
         &http,
         &config.oidc_issuer_url,
@@ -64,6 +68,7 @@ async fn main() -> anyhow::Result<()> {
     let cookie_key = Key::from(&Sha512::digest(&config.session_secret));
     let csrf_config = CsrfConfig::default().with_key(Some(cookie_key.clone()));
 
+    info!("creating AppState");
     let state = AppState {
         config: Arc::new(config),
         db,
@@ -81,6 +86,7 @@ async fn main() -> anyhow::Result<()> {
 
     let max_body_bytes = state.config.rustypaste_max_body_bytes as usize;
 
+    info!("setting up axum router");
     let app = Router::new()
         .route("/healthz", get(|| async { "ok" }))
         .route("/auth/login", get(oidc::login))
@@ -94,7 +100,7 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = format!("0.0.0.0:{}", state.config.app_port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    tracing::info!(%addr, "listening");
+    info!(%addr, "listening");
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),

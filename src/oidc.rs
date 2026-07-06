@@ -15,7 +15,7 @@ use openidconnect::{
     TokenResponse,
 };
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{debug, trace};
 
 use crate::db;
 use crate::error::AppError;
@@ -53,6 +53,7 @@ type DiscoveredProviderMetadata = ProviderMetadata<
 /// endpoint markers make that type painful to name in a struct field, and
 /// rebuilding it from these plain values is just cheap struct construction
 /// (no I/O) — see watari.md implementation notes.
+#[derive(Debug)]
 pub struct OidcContext {
     provider_metadata: DiscoveredProviderMetadata,
     client_id: ClientId,
@@ -89,6 +90,7 @@ impl OidcContext {
         client_secret: &str,
         redirect_uri: &str,
     ) -> anyhow::Result<Self> {
+        debug!("running OIDC discover");
         let issuer = IssuerUrl::new(issuer_url.to_string())
             .map_err(|e| anyhow::anyhow!("invalid OIDC_ISSUER_URL: {e}"))?;
         let provider_metadata = DiscoveredProviderMetadata::discover_async(issuer, http)
@@ -99,14 +101,17 @@ impl OidcContext {
             .end_session_endpoint
             .clone();
 
-        Ok(Self {
+        let oidc_context = Self {
             provider_metadata,
             client_id: ClientId::new(client_id.to_string()),
             client_secret: ClientSecret::new(client_secret.to_string()),
             redirect_uri: RedirectUrl::new(redirect_uri.to_string())
                 .map_err(|e| anyhow::anyhow!("invalid OIDC_REDIRECT_URI: {e}"))?,
             end_session_endpoint,
-        })
+        };
+
+        trace!("retrieved OIDC context: {oidc_context:#?}");
+        Ok(oidc_context)
     }
 
     fn build_client(&self) -> DiscoveredClient {
@@ -123,7 +128,10 @@ impl OidcContext {
         http: &reqwest::Client,
         refresh_token: &str,
     ) -> anyhow::Result<RefreshedTokens> {
+        debug!("performing OIDC token refresh");
         let client = self.build_client();
+
+        debug!("sending oidc refresh token request");
         let token_response = client
             .exchange_refresh_token(&RefreshToken::new(refresh_token.to_string()))
             .map_err(|e| anyhow::anyhow!("failed to build refresh token request: {e}"))?
@@ -131,9 +139,12 @@ impl OidcContext {
             .await
             .map_err(|e| anyhow::anyhow!("refresh token exchange failed: {e}"))?;
 
+        debug!("getting expire time from refresh token");
         let access_token_expires_at = token_response
             .expires_in()
             .map(|d| session::now_unix() + d.as_secs() as i64);
+
+        debug!("getting refresh token value");
         let refresh_token = token_response
             .refresh_token()
             .map(|t| t.secret().clone())
@@ -147,11 +158,12 @@ impl OidcContext {
 }
 
 pub async fn login(State(state): State<AppState>, jar: PrivateCookieJar) -> impl IntoResponse {
+    debug!("OIDC login init");
     let client = state.oidc.build_client();
 
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
-    info!("oidc login flow init");
+    debug!("generating OIDC login URL");
     let (auth_url, csrf_state, nonce) = client
         .authorize_url(
             CoreAuthenticationFlow::AuthorizationCode,
@@ -169,6 +181,7 @@ pub async fn login(State(state): State<AppState>, jar: PrivateCookieJar) -> impl
         .set_pkce_challenge(pkce_challenge)
         .url();
 
+    debug!("creating OIDC state");
     let oidc_state = OidcState {
         pkce_verifier: pkce_verifier.secret().clone(),
         csrf_state: csrf_state.secret().clone(),
@@ -193,7 +206,7 @@ pub async fn callback(
     jar: PrivateCookieJar,
     Query(query): Query<CallbackQuery>,
 ) -> Result<Response, AppError> {
-    info!("hitting OIDC callback");
+    debug!("OIDC callback init");
     let (jar, oidc_state) = session::take_oidc_state_cookie(jar);
     let oidc_state = oidc_state.ok_or_else(|| {
         AppError::BadRequest(
@@ -201,27 +214,33 @@ pub async fn callback(
         )
     })?;
 
+    debug!("checking query error");
     if let Some(err) = query.error {
         return Err(AppError::BadRequest(format!(
             "identity provider returned an error: {err} ({})",
             query.error_description.unwrap_or_default()
         )));
     }
+
+    debug!("getting OIDC auth code");
     let code = query
         .code
         .ok_or_else(|| AppError::BadRequest("missing authorization code".into()))?;
+
+    debug!("getting OIDC returned state");
     let returned_state = query
         .state
         .ok_or_else(|| AppError::BadRequest("missing state parameter".into()))?;
+
+    debug!("validating OIDC state CSRF token");
     if returned_state != oidc_state.csrf_state {
         return Err(AppError::BadRequest(
             "state mismatch — possible CSRF, please try again".into(),
         ));
     }
 
-    info!("got OIDC auth code");
+    debug!("creating OIDC token exchange client");
     let client = state.oidc.build_client();
-
     let token_response = client
         .exchange_code(AuthorizationCode::new(code))
         .map_err(|e| anyhow::anyhow!("failed to build token exchange request: {e}"))?
@@ -230,23 +249,28 @@ pub async fn callback(
         .await
         .map_err(|e| anyhow::anyhow!("token exchange with the identity provider failed: {e}"))?;
 
-    info!("getting Id token");
+    debug!("getting OIDC ID token from token response");
     let id_token = token_response
         .id_token()
         .ok_or_else(|| anyhow::anyhow!("identity provider did not return an id_token"))?;
+
     // openidconnect-rs rejects any `aud` entry beyond our own client_id unless
     // explicitly trusted. Zitadel (and other project-scoped IdPs) legitimately
     // add a second audience — the project's resource ID — alongside the
     // client_id; the OIDC spec allows this as long as `azp` identifies the
     // actual authorized party, which the crate still enforces separately.
+    debug!("performing OIDC ID token verification (audience check)");
     let verifier = client
         .id_token_verifier()
         .set_other_audience_verifier_fn(|_aud| true);
+
+    debug!("validating OIDC nonce");
     let nonce = Nonce::new(oidc_state.nonce);
     let claims = id_token
         .claims(&verifier, &nonce)
         .map_err(|e| anyhow::anyhow!("id_token verification failed: {e}"))?;
 
+    debug!("getting user sub from ID token");
     let user_sub = claims.subject().as_str().to_string();
     let email = claims
         .email()
@@ -260,6 +284,7 @@ pub async fn callback(
         .context("failed to inspect id_token payload for the groups claim")?;
     let groups = extract_groups(&raw_claims, &state.config.oidc_groups_claim);
 
+    debug!("resolving rustypaste token binding");
     let binding = state
         .token_map
         .resolve(&groups)
@@ -273,6 +298,7 @@ pub async fn callback(
         .map(|d| now + d.as_secs() as i64);
     let refresh_token = token_response.refresh_token().map(|t| t.secret().clone());
 
+    debug!("storing session in database");
     db::insert_session(
         &state.db,
         db::NewSession {
@@ -300,12 +326,16 @@ pub async fn callback(
 }
 
 pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> impl IntoResponse {
+    debug!("OIDC logout init");
     if let Some(session_id) = jar
         .get(session::SESSION_COOKIE)
         .map(|c| c.value().to_string())
     {
+        debug!("deleting existing session");
         let _ = db::delete_session(&state.db, &session_id).await;
     }
+
+    debug!("clear session cookie");
     let jar = session::clear_session_cookie(jar);
 
     let redirect_url = match &state.oidc.end_session_endpoint {
@@ -322,6 +352,7 @@ pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> impl IntoR
 
     (jar, Redirect::to(&redirect_url))
 }
+
 fn decode_jwt_payload_unverified(compact: &str) -> anyhow::Result<serde_json::Value> {
     let mut parts = compact.split('.');
     let _header = parts.next().context("malformed JWT: missing header")?;
@@ -337,6 +368,7 @@ fn decode_jwt_payload_unverified(compact: &str) -> anyhow::Result<serde_json::Va
 /// group/role names — e.g. Zitadel's `urn:zitadel:iam:org:project:roles`
 /// claim (`{"role-name": {"org-id": "org-name"}, ...}`).
 fn extract_groups(claims: &serde_json::Value, claim_name: &str) -> Vec<String> {
+    debug!("extracting groups from OIDC token");
     match claims.get(claim_name) {
         Some(serde_json::Value::Array(items)) => items
             .iter()
