@@ -1,4 +1,4 @@
-# ☀️ Watari
+# ☕ Watari
 
 **Watari** is a web GUI frontend for [rustypaste](https://github.com/orhun/rustypaste).
 
