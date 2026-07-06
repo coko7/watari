@@ -1614,40 +1614,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "watari"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "askama",
- "axum",
- "axum-extra",
- "axum_csrf",
- "base64 0.22.1",
- "governor",
- "hex",
- "hmac 0.13.0",
- "humantime",
- "openidconnect",
- "rand 0.10.2",
- "reqwest",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2 0.11.0",
- "sqlx",
- "thiserror 2.0.18",
- "time",
- "tokio",
- "tower",
- "tower-http 0.7.0",
- "tower_governor",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3741,6 +3707,40 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "watari"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "askama",
+ "axum",
+ "axum-extra",
+ "axum_csrf",
+ "base64 0.22.1",
+ "governor",
+ "hex",
+ "hmac 0.13.0",
+ "humantime",
+ "openidconnect",
+ "rand 0.10.2",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2 0.11.0",
+ "sqlx",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "tower",
+ "tower-http 0.7.0",
+ "tower_governor",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
 ]
 
 [[package]]

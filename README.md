@@ -4,7 +4,7 @@
 
 The project name comes from the japanese word **渡り** (`watari`, also written as **ワタリ** in [Katakana](https://en.wikipedia.org/wiki/Katakana)) which means ["crossing, passage, transit"](https://jisho.org/search/%22watari%22) and symbolizes the relationship with **rustypaste**.
 
-<img alt="watari banner image" src="https://github.com/user-attachments/assets/817412d7-eb96-485a-8316-67f4af6cf578" />
+<img alt="watari banner image" src="assets/watari.webp" />
 
 <p align="center">
     <a href="https://github.com/coko7/watari/releases/latest"><img src="https://img.shields.io/github/v/release/coko7/watari" alt="Release info"></a>
