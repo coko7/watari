@@ -164,7 +164,7 @@ pub async fn login(State(state): State<AppState>, jar: PrivateCookieJar) -> impl
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
     debug!("generating OIDC login URL");
-    let (auth_url, csrf_state, nonce) = client
+    let mut auth_request = client
         .authorize_url(
             CoreAuthenticationFlow::AuthorizationCode,
             CsrfToken::new_random,
@@ -172,14 +172,20 @@ pub async fn login(State(state): State<AppState>, jar: PrivateCookieJar) -> impl
         )
         // `openid` is added automatically for CoreAuthenticationFlow::AuthorizationCode.
         .add_scope(Scope::new("profile".to_string()))
-        .add_scope(Scope::new("email".to_string()))
-        // Most providers (Zitadel, Keycloak, Auth0, Okta) expose group/role
-        // membership under a "groups" scope by convention; watari.md §6.2
-        // calls for requesting a groups scope but doesn't name one since the
-        // app is provider-agnostic.
-        .add_scope(Scope::new("groups".to_string()))
-        .set_pkce_challenge(pkce_challenge)
-        .url();
+        .add_scope(Scope::new("email".to_string()));
+    // Most providers (Zitadel, Keycloak, Auth0, Okta) expose group/role
+    // membership under a "groups" scope by convention; watari.md §6.2 calls
+    // for requesting a groups scope but doesn't name one since the app is
+    // provider-agnostic. Azure AD has no such scope on the Graph resource
+    // (groups are delivered via an optional claim configured on the app
+    // registration instead) and rejects the request with AADSTS650053 if
+    // asked for it, so this is opt-in via OIDC_GROUPS_SCOPE rather than
+    // hardcoded.
+    if let Some(scope) = &state.config.oidc_groups_scope {
+        auth_request = auth_request.add_scope(Scope::new(scope.clone()));
+    }
+    let (auth_url, csrf_state, nonce) =
+        auth_request.set_pkce_challenge(pkce_challenge).url();
 
     debug!("creating OIDC state");
     let oidc_state = OidcState {

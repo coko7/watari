@@ -8,6 +8,7 @@ pub struct AppConfig {
     pub oidc_client_secret: String,
     pub oidc_redirect_uri: String,
     pub oidc_groups_claim: String,
+    pub oidc_groups_scope: Option<String>,
 
     pub session_secret: Vec<u8>,
     pub session_ttl_seconds: i64,
@@ -33,6 +34,7 @@ impl std::fmt::Debug for AppConfig {
             .field("oidc_client_secret", &"***")
             .field("oidc_redirect_uri", &self.oidc_redirect_uri)
             .field("oidc_groups_claim", &self.oidc_groups_claim)
+            .field("oidc_groups_scope", &self.oidc_groups_scope)
             .field("session_secret", &"***")
             .field("session_ttl_seconds", &self.session_ttl_seconds)
             .field("rustypaste_internal_url", &self.rustypaste_internal_url)
@@ -88,6 +90,7 @@ impl AppConfig {
             oidc_client_secret: required("OIDC_CLIENT_SECRET")?,
             oidc_redirect_uri: required("OIDC_REDIRECT_URI")?,
             oidc_groups_claim: optional("OIDC_GROUPS_CLAIM", "groups"),
+            oidc_groups_scope: std::env::var("OIDC_GROUPS_SCOPE").ok().filter(|s| !s.is_empty()),
 
             session_secret,
             session_ttl_seconds: parse_optional("SESSION_TTL_SECONDS", "28800")?,
