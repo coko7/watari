@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/coko7/watari/compare/watari-v0.5.0...watari-v1.0.0) (2026-08-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **oidc:** the groups scope is no longer requested by default. Set OIDC_GROUPS_SCOPE=groups to restore previous behavior.
+
+### Features
+
+* **oidc:** make groups scope configurable ([c051ee2](https://github.com/coko7/watari/commit/c051ee2d550b713396ab08d4d0d49ca44d33335a))
+
 ## [0.5.0](https://github.com/coko7/watari/compare/watari-v0.4.0...watari-v0.5.0) (2026-07-06)
 
 
