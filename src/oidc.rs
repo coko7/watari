@@ -184,8 +184,7 @@ pub async fn login(State(state): State<AppState>, jar: PrivateCookieJar) -> impl
     if let Some(scope) = &state.config.oidc_groups_scope {
         auth_request = auth_request.add_scope(Scope::new(scope.clone()));
     }
-    let (auth_url, csrf_state, nonce) =
-        auth_request.set_pkce_challenge(pkce_challenge).url();
+    let (auth_url, csrf_state, nonce) = auth_request.set_pkce_challenge(pkce_challenge).url();
 
     debug!("creating OIDC state");
     let oidc_state = OidcState {

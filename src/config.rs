@@ -90,7 +90,9 @@ impl AppConfig {
             oidc_client_secret: required("OIDC_CLIENT_SECRET")?,
             oidc_redirect_uri: required("OIDC_REDIRECT_URI")?,
             oidc_groups_claim: optional("OIDC_GROUPS_CLAIM", "groups"),
-            oidc_groups_scope: std::env::var("OIDC_GROUPS_SCOPE").ok().filter(|s| !s.is_empty()),
+            oidc_groups_scope: std::env::var("OIDC_GROUPS_SCOPE")
+                .ok()
+                .filter(|s| !s.is_empty()),
 
             session_secret,
             session_ttl_seconds: parse_optional("SESSION_TTL_SECONDS", "28800")?,
