@@ -33,6 +33,15 @@ This project has been **vibe-scaffolded** with [Claude](https://claude.ai), you 
   <img alt="Watari UI screenshot" src="assets/watari-ui-screenshot.webp" />
 </p>
 
+## Table of contents
+
+- [Running with Docker Compose (recommended)](#running-with-docker-compose-recommended)
+  - [OIDC groups setup](#oidc-groups-setup)
+- [Running locally for development](#running-locally-for-development)
+- [Project layout](#project-layout)
+- [License](#license)
+- [AI usage / vibe coding](#ai-usage--vibe-coding)
+
 ## Running with Docker Compose (recommended)
 
 1. `cp env.example .env` and fill in `SESSION_SECRET` (`openssl rand -hex 32`),
