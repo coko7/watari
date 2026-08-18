@@ -1,44 +1,37 @@
 services:
-  rustypaste:
-    image: ghcr.io/orhun/rustypaste:latest
-    restart: unless-stopped
-    volumes:
-      - rustypaste-data:/app/upload
-      - ./rustypaste-config.toml:/app/config.toml:ro
-    networks: [internal]
-    # No published ports — only reachable from watari over the internal network.
-
   watari:
     build: .
     restart: unless-stopped
     environment:
-      OIDC_ISSUER_URL: "https://your-idp.example.com"
-      OIDC_CLIENT_ID: "watari"
+      OIDC_ISSUER_URL: "${OIDC_ISSUER_URL:?set in .env}"
+      OIDC_CLIENT_ID: "${OIDC_CLIENT_ID:?set in .env}"
       OIDC_CLIENT_SECRET: "${OIDC_CLIENT_SECRET:?set in .env}"
-      OIDC_REDIRECT_URI: "https://paste.example.com/auth/callback"
-      OIDC_GROUPS_CLAIM: "groups"
+      OIDC_REDIRECT_URI: "${OIDC_REDIRECT_URI:?set in .env}"
+      OIDC_GROUPS_CLAIM: "${OIDC_GROUPS_CLAIM:?set in .env}"
+      OIDC_GROUPS_SCOPE: "${OIDC_GROUPS_SCOPE:-}"
       SESSION_SECRET: "${SESSION_SECRET:?set in .env}"
-      RUSTYPASTE_INTERNAL_URL: "http://rustypaste:8000"
-      RUSTYPASTE_PUBLIC_URL: "https://paste.example.com"
-      RUSTYPASTE_TOKEN_READONLY: "${RUSTYPASTE_TOKEN_READONLY:?set in .env}"
+      RUSTYPASTE_INTERNAL_URL: "${RUSTYPASTE_INTERNAL_URL:?set in .env}"
+      RUSTYPASTE_PUBLIC_URL: "${RUSTYPASTE_PUBLIC_URL:?set in .env}"
+      RUSTYPASTE_TOKEN_USER: "${RUSTYPASTE_TOKEN_USER:?set in .env}"
       RUSTYPASTE_TOKEN_ADMIN: "${RUSTYPASTE_TOKEN_ADMIN:?set in .env}"
-      APP_BASE_URL: "https://paste.example.com"
-      APP_PORT: "3000"
+      APP_BASE_URL: "${APP_BASE_URL:?set in .env}"
       DATABASE_PATH: "/data/app.db"
       TOKEN_BINDINGS_PATH: "/app/token-bindings.yaml"
       PBKDF2_ITERATIONS: "310000"
     volumes:
       - watari-data:/data
       - ./token-bindings.yaml:/app/token-bindings.yaml:ro
-    depends_on: [rustypaste]
-    networks: [internal, public]
-    ports:
-      - "3000:3000"
+    networks: [traefik-network]
+    labels:
+      traefik.enable: true
+      traefik.http.routers.watari.rule: Host(`${DOMAIN}`)
+      traefik.http.routers.watari.entrypoints: websecure
+      traefik.http.routers.watari.tls.certresolver: letsencrypt
+      traefik.http.services.watari.loadbalancer.server.port: 3000
 
 networks:
-  internal:
-  public:
+  traefik-network:
+    external: true
 
 volumes:
-  rustypaste-data:
   watari-data:
