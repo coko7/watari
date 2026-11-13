@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Home — Watari{% endblock %}
+
+{% block content %}
+<div class="home">
+  <h1>Watari</h1>
+  <p class="lead">A web front end for <a href="https://github.com/orhun/rustypaste" target="_blank" rel="noopener">rustypaste</a> that gives every teammate their own login.</p>
+
+  <h2>Why Watari?</h2>
+  <p>rustypaste is a minimal self-hosted pastebin and file-sharing server. It only offers an HTTP API protected by shared tokens and has no notion of users, so everyone who wants to use it ends up holding the same raw token.</p>
+  <p>Watari sits in front of it. You sign in with your organization's SSO, and Watari calls rustypaste for you with a token picked from your groups. That token never reaches your browser, and rustypaste itself runs unchanged: shared links still point straight at it.</p>
+
+  <h2>Features</h2>
+  <ul class="feature-list">
+    <li><strong>Upload, paste, shorten:</strong> files, text and URLs, with optional expiry or one-shot links that disappear after the first view.</li>
+    <li><strong>Password protection:</strong> content is encrypted in your browser (AES-GCM). The password and plaintext never reach the server; recipients unlock it on Watari's decrypt page without an account.</li>
+    <li><strong>Single sign-on:</strong> OIDC login. Your groups decide which rustypaste token, and therefore which permissions, you get.</li>
+    <li><strong>Dashboard:</strong> everything you've shared through Watari, with copy and delete.</li>
+  </ul>
+
+  <h2>How it works</h2>
+  <pre class="tui-diagram" role="img" aria-label="Diagram: your browser talks to Watari. Watari signs you in through your identity provider, maps your groups to a rustypaste token, and calls rustypaste with it. People you share a link with download directly from rustypaste without logging in.">
+                               ╭ <span class="tui-title">Identity provider</span> ─────╮
+                               │ Keycloak, Zitadel, …   │
+                               ╰────────────┬───────────╯
+                                            │ SSO login + groups
+╭ <span class="tui-title">You (browser)</span> ─────╮         ╭ <span class="tui-title">Watari</span> ────▼───────────╮         ╭ <span class="tui-title">rustypaste</span> ────────────╮
+│ upload · paste     │ session │ OIDC sessions          │  token  │ stores files, pastes   │
+│ shorten · history  ├────────►│ groups → token binding ├────────►│ and short URLs         │
+│ optional AES-GCM   │         │ upload history         │         │ no user accounts       │
+╰────────────────────╯         ╰────────────────────────╯         ╰────────────▲───────────╯
+                                                     direct download, no login │
+                                                                  ╭ <span class="tui-title">Recipient</span> ─┴───────────╮
+                                                                  │ opens the shared link  │
+                                                                  ╰────────────────────────╯</pre>
+</div>
+{% endblock %}

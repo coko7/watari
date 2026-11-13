@@ -32,7 +32,7 @@ Watari is a Rust/Axum web GUI that sits in front of [rustypaste](https://github.
 - `rustypaste.rs` — the rustypaste HTTP client. Field names/headers here were confirmed against rustypaste's actual source, not guessed — see the "rustypaste's real API" doc comment at the top of the file before changing it.
 - `csrf.rs` / `csp.rs` / `ratelimit.rs` — `axum_csrf` verification helper, static CSP header middleware, and `tower_governor` layer factories.
 - `templates.rs` — `Tpl<T>`, a tiny `IntoResponse` wrapper around `askama::Template::render()` (replaces the `askama_axum` crate, which no longer exists as of askama ≥0.13), and `Layout`, the struct every page template embeds as a `layout: Layout` field for the data `base.html` needs (csrf token, pbkdf2 iterations, user email, admin flag).
-- `routes/` — `pages.rs` (dashboard/upload/paste/shorten form pages), `api.rs` (the mutating `/api/*` proxy endpoints + pagination), `decrypt.rs` (public, SSRF-guarded), `admin.rs` (token bindings viewer).
+- `routes/` — `pages.rs` (home overview at `/home`, dashboard, upload/paste/shorten form pages; the Home diagram in `templates/home.html` is hand-aligned box-drawing text, so keep columns intact when editing it), `api.rs` (the mutating `/api/*` proxy endpoints + pagination), `decrypt.rs` (public, SSRF-guarded), `admin.rs` (token bindings viewer).
 
 ## Known deviations from `watari.md`
 
