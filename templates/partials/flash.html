@@ -1,5 +1,12 @@
 <div class="flash {% if ok %}flash-ok{% else %}flash-error{% endif %}">
   <p>{{ message }}</p>
+  {% if protected %}
+  <p class="flash-hint">
+    This content is password-protected. Share the link below: the recipient opens it,
+    enters the password, and the content is decrypted in their browser, no account needed.
+    Send the password through a different channel than the link (a call, another chat).
+  </p>
+  {% endif %}
   {% if let Some(url) = url %}
   <div class="flash-url">
     <input type="text" readonly value="{{ url }}" onclick="this.select()">

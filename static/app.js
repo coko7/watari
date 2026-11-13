@@ -330,29 +330,82 @@ document.addEventListener(
 );
 
 // --- Decrypt page ---
+// One-shot content can only be fetched once, so the ciphertext of the last
+// fetched link is kept and reused when the user retries another password.
+let fetchedEnvelope = null; // { link, bytes }
+
+// Accepts a raw rustypaste link or a Watari share link (…/decrypt?url=…).
+function pasteLinkFrom(value) {
+  const trimmed = value.trim();
+  try {
+    const u = new URL(trimmed);
+    if (u.origin === location.origin && u.pathname === "/decrypt" && u.searchParams.has("url")) {
+      return u.searchParams.get("url");
+    }
+  } catch {
+    // Not a URL; /decrypt/fetch rejects it with a clear status.
+  }
+  return trimmed;
+}
+
+async function fetchEnvelope(link) {
+  if (fetchedEnvelope?.link === link) return fetchedEnvelope.bytes;
+  let resp;
+  try {
+    resp = await fetch(`/decrypt/fetch?url=${encodeURIComponent(link)}`);
+  } catch {
+    throw new Error("Could not reach Watari. Check your connection and try again.");
+  }
+  if (resp.status === 400) {
+    throw new Error("That link doesn't point at this Watari's paste server.");
+  }
+  if (!resp.ok) {
+    throw new Error(
+      `Could not fetch the content (${resp.status}). It may have expired, been deleted, ` +
+        "or been a one-shot link that was already opened.",
+    );
+  }
+  const bytes = new Uint8Array(await resp.arrayBuffer());
+  fetchedEnvelope = { link, bytes };
+  return bytes;
+}
+
 document.addEventListener("submit", async (e) => {
   const form = e.target;
   if (form.id !== "decrypt-form") return;
   e.preventDefault();
 
-  const appEl = document.getElementById("decrypt-app");
   const resultEl = document.getElementById("decrypt-result");
+  if (!resultEl) return;
+  const link = pasteLinkFrom(form.querySelector("#decrypt-link")?.value ?? "");
   const password = form.querySelector("#decrypt-password")?.value ?? "";
-  if (resultEl) resultEl.textContent = "Decrypting…";
+  resultEl.textContent = "Decrypting…";
 
+  let envelope;
   try {
-    const resp = await fetch(appEl.dataset.fetchUrl);
-    if (!resp.ok) throw new Error(`could not fetch the paste (${resp.status})`);
-    const envelope = new Uint8Array(await resp.arrayBuffer());
-    const plaintext = await decryptEnvelope(password, envelope);
-    renderDecrypted(resultEl, plaintext);
+    envelope = await fetchEnvelope(link);
+  } catch (err) {
+    renderFlash(resultEl, false, err.message);
+    return;
+  }
+  try {
+    renderDecrypted(resultEl, await decryptEnvelope(password, envelope));
   } catch {
-    if (resultEl) {
-      resultEl.innerHTML =
-        '<div class="flash flash-error"><p>Decryption failed: wrong password, or this isn\'t a Watari encrypted link.</p></div>';
-    }
+    renderFlash(resultEl, false, "Decryption failed: wrong password, or this isn't Watari-encrypted content.");
   }
 });
+
+// Decrypted short URLs are a single http(s) URL; anything else stays plain text.
+function asHttpUrl(text) {
+  const trimmed = text.trim();
+  if (/\s/.test(trimmed)) return null;
+  try {
+    const u = new URL(trimmed);
+    return u.protocol === "http:" || u.protocol === "https:" ? u : null;
+  } catch {
+    return null;
+  }
+}
 
 function renderDecrypted(container, bytes) {
   if (!container) return;
@@ -365,7 +418,16 @@ function renderDecrypted(container, bytes) {
     // Not valid UTF-8 text; treat as binary.
   }
 
-  if (text !== null) {
+  const url = text !== null ? asHttpUrl(text) : null;
+  if (url) {
+    const a = document.createElement("a");
+    a.href = url.href;
+    a.rel = "noopener noreferrer";
+    a.textContent = url.href;
+    const p = document.createElement("p");
+    p.append("Decrypted link: ", a);
+    container.appendChild(p);
+  } else if (text !== null) {
     const pre = document.createElement("pre");
     pre.textContent = text;
     container.appendChild(pre);

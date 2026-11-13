@@ -330,6 +330,11 @@ button.copy-btn {
 }
 
 .flash-ok { border-color: var(--ok); }
+.flash-hint { font-size: 0.9rem; opacity: 0.85; line-height: 1.5; }
+
+.page-intro { max-width: 42rem; line-height: 1.55; opacity: 0.85; }
+#decrypt-result { margin-top: 1rem; }
+#decrypt-result pre { white-space: pre-wrap; word-break: break-word; }
 .flash-error { border-color: var(--danger); }
 
 .flash-url {

@@ -18,6 +18,9 @@ pub struct UploadRowView {
     pub id: String,
     pub display_name: String,
     pub paste_url: String,
+    /// What to share/open: the Watari decrypt page for encrypted items (the
+    /// raw rustypaste URL only serves ciphertext), `paste_url` otherwise.
+    pub share_url: String,
     pub encrypted: bool,
     /// RFC 3339 (UTC); `static/app.js` turns it into "14:05" / "3 days ago" in
     /// the viewer's timezone.
@@ -94,20 +97,29 @@ pub async fn load_section_page(
     SectionPage {
         has_more: db_rows.len() as i64 == PAGE_SIZE,
         next_cursor: db_rows.last().map(|r| r.created_at),
-        rows: db_rows.iter().map(UploadRowView::from).collect(),
+        rows: db_rows
+            .iter()
+            .map(|row| UploadRowView::new(row, &state.config.app_base_url))
+            .collect(),
     }
 }
 
-impl From<&db::UploadLogRow> for UploadRowView {
-    fn from(row: &db::UploadLogRow) -> Self {
+impl UploadRowView {
+    fn new(row: &db::UploadLogRow, app_base_url: &str) -> Self {
         let created_at_iso = OffsetDateTime::from_unix_timestamp(row.created_at)
             .ok()
             .and_then(|t| t.format(&Rfc3339).ok())
             .unwrap_or_default();
+        let share_url = if row.encrypted {
+            super::decrypt::share_link(app_base_url, &row.paste_url)
+        } else {
+            row.paste_url.clone()
+        };
         Self {
             id: row.id.clone(),
             display_name: row.display_name.clone(),
             paste_url: row.paste_url.clone(),
+            share_url,
             encrypted: row.encrypted,
             created_at_iso,
         }
@@ -146,7 +158,7 @@ fn can_delete(state: &AppState, token_id: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn layout_for(
+pub(crate) fn layout_for(
     state: &AppState,
     token: &CsrfToken,
     session: &UserSession,

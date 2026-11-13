@@ -3,15 +3,28 @@
 {% block title %}Decrypt — Watari{% endblock %}
 
 {% block content %}
-<h1>Decrypt a shared paste</h1>
-<div id="decrypt-app" data-fetch-url="/decrypt/fetch?url={{ url|urlencode }}">
-  <form id="decrypt-form">
-    <div class="field">
-      <label for="decrypt-password">Password</label>
-      <input type="password" id="decrypt-password" name="password" autocomplete="current-password" required>
-    </div>
-    <button type="submit">Decrypt</button>
-  </form>
-  <div id="decrypt-result"></div>
-</div>
+<h1>Open protected content</h1>
+<p class="page-intro">
+  Paste a link to password-protected content and enter its password. Everything is
+  decrypted here in your browser: the password never leaves this page.
+</p>
+<form id="decrypt-form">
+  <div class="field">
+    <label for="decrypt-link">Link</label>
+    <input type="text" id="decrypt-link" name="link" value="{{ url }}"
+           placeholder="https://…" autocomplete="off" spellcheck="false" required
+           {% if url.is_empty() %}autofocus{% endif %}>
+  </div>
+  <div class="field">
+    <label for="decrypt-password">Password</label>
+    <input type="password" id="decrypt-password" name="password" autocomplete="current-password" required
+           {% if !url.is_empty() %}autofocus{% endif %}>
+  </div>
+  <p class="hint">
+    One-shot links can only be opened once, so keep this page open until the content shows.
+    A mistyped password is fine: retrying doesn't fetch the content again.
+  </p>
+  <button type="submit">Decrypt</button>
+</form>
+<div id="decrypt-result"></div>
 {% endblock %}
