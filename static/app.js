@@ -108,6 +108,51 @@ document.addEventListener("click", (e) => {
   if (text) navigator.clipboard?.writeText(text);
 });
 
+// --- Human-friendly timestamps (dashboard "Created" column) ---
+// The server renders <time class="rel-time" datetime="<RFC 3339, UTC>">; the
+// text is rewritten here because "today" and HH:mm depend on the viewer's
+// timezone, which the server doesn't know. Full local date/time goes in the
+// tooltip.
+const relTimeFormat = new Intl.RelativeTimeFormat(document.documentElement.lang || "en", {
+  numeric: "always",
+});
+
+// [unit, seconds per unit, used while the age in seconds is below this]
+const RELATIVE_STEPS = [
+  ["minute", 60, 3600],
+  ["hour", 3600, 86400],
+  ["day", 86400, 7 * 86400],
+  ["week", 7 * 86400, 30 * 86400],
+  ["month", 30 * 86400, 365 * 86400],
+  ["year", 365 * 86400, Infinity],
+];
+
+function humanTime(date, now = new Date()) {
+  if (date.toDateString() === now.toDateString()) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+  const seconds = Math.max(0, (now - date) / 1000);
+  for (const [unit, size, limit] of RELATIVE_STEPS) {
+    if (seconds < limit) return relTimeFormat.format(-Math.max(1, Math.floor(seconds / size)), unit);
+  }
+}
+
+function formatTimes(root) {
+  root.querySelectorAll?.("time.rel-time").forEach((el) => {
+    const date = new Date(el.getAttribute("datetime"));
+    if (Number.isNaN(date.getTime())) return;
+    el.textContent = humanTime(date);
+    el.title = date.toLocaleString();
+  });
+}
+
+formatTimes(document);
+// Rows added later by "Load more".
+document.addEventListener("htmx:load", (e) => formatTimes(e.detail.elt));
+// Keep "N minutes ago" from going stale while the page stays open.
+setInterval(() => formatTimes(document), 60_000);
+
 // --- Inline HTMX error messages (dashboard Delete buttons) ---
 // HTMX core drops 4xx/5xx responses without swapping. An element with
 // `data-error-target="<selector>"` gets its error body (a flash fragment)

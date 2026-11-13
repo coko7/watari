@@ -167,6 +167,13 @@ main {
 
 h1 { font-size: 1.4rem; }
 
+/* --- Dashboard sections --- */
+.dashboard-section { margin-top: 2rem; }
+.dashboard-section h2 { font-size: 1.1rem; margin: 0; }
+.dashboard-section .upload-table { margin-top: 0.5rem; }
+.empty-state { margin: 0.5rem 0 0; font-size: 0.9rem; opacity: 0.7; }
+.dashboard-section [id^="load-more-"] button { margin-top: 0.75rem; }
+
 /* --- Home page --- */
 .home p,
 .home ul { max-width: 42rem; line-height: 1.55; }

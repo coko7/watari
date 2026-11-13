@@ -1,8 +1,8 @@
-<div id="load-more-slot" hx-swap-oob="true">
+<div id="load-more-{{ kind.as_str() }}" hx-swap-oob="true">
   {% if has_more %}
   <button type="button"
-          hx-get="/api/pastes?before={{ next_cursor.unwrap_or_default() }}"
-          hx-target="#upload-rows"
+          hx-get="/api/pastes?kind={{ kind.as_str() }}&amp;before={{ next_cursor.unwrap_or_default() }}"
+          hx-target="#rows-{{ kind.as_str() }}"
           hx-swap="beforeend">Load more</button>
   {% endif %}
 </div>
