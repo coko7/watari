@@ -22,13 +22,29 @@ struct FlashTemplate {
     ok: bool,
     message: String,
     url: Option<String>,
+    /// Adds the "how to open password-protected content" explanation.
+    protected: bool,
 }
 
-fn flash_ok(message: impl Into<String>, url: String) -> Response {
+/// Success flash after an upload/paste/shorten. For encrypted content the link
+/// shown is Watari's decrypt page (what recipients should open), not the raw
+/// rustypaste URL, which only serves ciphertext.
+fn flash_ok(
+    state: &AppState,
+    message: impl Into<String>,
+    url: String,
+    encrypted: bool,
+) -> Response {
+    let url = if encrypted {
+        super::decrypt::share_link(&state.config.app_base_url, &url)
+    } else {
+        url
+    };
     Tpl(FlashTemplate {
         ok: true,
         message: message.into(),
         url: Some(url),
+        protected: encrypted,
     })
     .into_response()
 }
@@ -44,6 +60,7 @@ fn flash_err_status(status: StatusCode, message: impl Into<String>) -> Response 
             ok: false,
             message: message.into(),
             url: None,
+            protected: false,
         }),
     )
         .into_response()
@@ -257,7 +274,12 @@ pub async fn upload(
                 &parsed.expire,
             )
             .await;
-            flash_ok(format!("Uploaded successfully ({size})."), url)
+            flash_ok(
+                &state,
+                format!("Uploaded successfully ({size})."),
+                url,
+                encrypted,
+            )
         }
         Err(e) => flash_err(upstream_message(e)),
     }
@@ -331,7 +353,7 @@ pub async fn paste(
                 &parsed.expire,
             )
             .await;
-            flash_ok("Pasted successfully.", url)
+            flash_ok(&state, "Pasted successfully.", url, encrypted)
         }
         Err(e) => flash_err(upstream_message(e)),
     }
@@ -386,7 +408,7 @@ pub async fn shorten(
                     &parsed.expire,
                 )
                 .await;
-                flash_ok("Shortened successfully.", short_url)
+                flash_ok(&state, "Shortened successfully.", short_url, false)
             }
             Err(e) => flash_err(upstream_message(e)),
         };
@@ -424,7 +446,7 @@ pub async fn shorten(
                 &parsed.expire,
             )
             .await;
-            flash_ok("Shortened successfully.", url)
+            flash_ok(&state, "Shortened successfully.", url, encrypted)
         }
         Err(e) => flash_err(upstream_message(e)),
     }

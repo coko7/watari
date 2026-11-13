@@ -146,7 +146,7 @@ fn can_delete(state: &AppState, token_id: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn layout_for(
+pub(crate) fn layout_for(
     state: &AppState,
     token: &CsrfToken,
     session: &UserSession,

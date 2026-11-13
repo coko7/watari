@@ -6,8 +6,24 @@ use axum_csrf::CsrfToken;
 use serde::Deserialize;
 
 use crate::error::AppError;
+use crate::session::UserSession;
 use crate::state::AppState;
 use crate::templates::{Layout, Tpl};
+
+/// The link to share for password-protected content: Watari's decrypt page
+/// with the rustypaste URL prefilled, so recipients only type the password.
+pub fn share_link(app_base_url: &str, paste_url: &str) -> String {
+    let encoded: String = url::form_urlencoded::byte_serialize(paste_url.as_bytes()).collect();
+    format!(
+        "{}/decrypt?url={encoded}",
+        app_base_url.trim_end_matches('/')
+    )
+}
+
+#[derive(Deserialize)]
+pub struct DecryptPageQuery {
+    url: Option<String>,
+}
 
 #[derive(Deserialize)]
 pub struct DecryptQuery {
@@ -18,29 +34,37 @@ pub struct DecryptQuery {
 #[template(path = "decrypt.html")]
 struct DecryptTemplate {
     layout: Layout,
+    /// Prefills the link field; empty when opened from the sidebar tab.
     url: String,
 }
 
-/// `GET /decrypt?url=...` — intentionally unauthenticated (watari.md §9.3) so
+/// `GET /decrypt[?url=...]` — intentionally unauthenticated (watari.md §9.3) so
 /// recipients without an SSO account can decrypt shared content. Renders the
-/// password prompt; actual bytes are fetched client-side from `/decrypt/fetch`.
+/// link + password form; actual bytes are fetched client-side from
+/// `/decrypt/fetch`. Signed-in users (it's also a sidebar tab) keep their
+/// normal sidebar.
 pub async fn page(
     State(state): State<AppState>,
+    session: Option<UserSession>,
     csrf_token: CsrfToken,
-    Query(query): Query<DecryptQuery>,
+    Query(query): Query<DecryptPageQuery>,
 ) -> Response {
-    let csrf = match csrf_token.authenticity_token() {
-        Ok(t) => t,
-        Err(e) => {
-            return AppError::Internal(anyhow::anyhow!("csrf token error: {e}")).into_response();
-        }
+    let layout = match &session {
+        Some(session) => super::pages::layout_for(&state, &csrf_token, session),
+        None => csrf_token
+            .authenticity_token()
+            .map(|csrf| Layout::anonymous(csrf, state.config.pbkdf2_iterations))
+            .map_err(|e| anyhow::anyhow!("csrf token error: {e}")),
     };
-    let layout = Layout::anonymous(csrf, state.config.pbkdf2_iterations);
+    let layout = match layout {
+        Ok(l) => l,
+        Err(e) => return AppError::Internal(e).into_response(),
+    };
     (
         csrf_token,
         Tpl(DecryptTemplate {
             layout,
-            url: query.url,
+            url: query.url.unwrap_or_default(),
         }),
     )
         .into_response()
@@ -89,4 +113,27 @@ pub async fn fetch(State(state): State<AppState>, Query(query): Query<DecryptQue
     };
 
     ([(header::CONTENT_TYPE, "application/octet-stream")], bytes).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::share_link;
+
+    #[test]
+    fn share_link_encodes_the_paste_url() {
+        assert_eq!(
+            share_link(
+                "https://watari.example.com/",
+                "https://paste.example.com/safe-toad.txt?x=1&y=2"
+            ),
+            "https://watari.example.com/decrypt?url=https%3A%2F%2Fpaste.example.com%2Fsafe-toad.txt%3Fx%3D1%26y%3D2"
+        );
+        assert_eq!(
+            share_link(
+                "https://watari.example.com",
+                "https://paste.example.com/a.txt"
+            ),
+            "https://watari.example.com/decrypt?url=https%3A%2F%2Fpaste.example.com%2Fa.txt"
+        );
+    }
 }

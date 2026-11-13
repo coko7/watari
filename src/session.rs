@@ -1,4 +1,4 @@
-use axum::extract::FromRequestParts;
+use axum::extract::{FromRequestParts, OptionalFromRequestParts};
 use axum::http::request::Parts;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum_extra::extract::cookie::{Cookie, CookieJar, PrivateCookieJar, SameSite};
@@ -151,5 +151,23 @@ impl FromRequestParts<AppState> for UserSession {
             groups,
             token_id: row.token_id,
         })
+    }
+}
+
+/// `Option<UserSession>`: for public pages (e.g. `/decrypt`) that show the
+/// signed-in sidebar when a valid session exists but must not redirect
+/// anonymous visitors to login.
+impl OptionalFromRequestParts<AppState> for UserSession {
+    type Rejection = std::convert::Infallible;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Option<Self>, Self::Rejection> {
+        Ok(
+            <UserSession as FromRequestParts<AppState>>::from_request_parts(parts, state)
+                .await
+                .ok(),
+        )
     }
 }
