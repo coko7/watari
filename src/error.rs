@@ -13,8 +13,6 @@ pub struct ErrorTemplate {
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    #[error("the requested resource was not found")]
-    NotFound,
     #[error("you don't have permission to do that")]
     Forbidden,
     #[error("{0}")]
@@ -28,7 +26,6 @@ pub enum AppError {
 impl AppError {
     fn status(&self) -> StatusCode {
         match self {
-            AppError::NotFound => StatusCode::NOT_FOUND,
             AppError::Forbidden => StatusCode::FORBIDDEN,
             AppError::BadRequest(_) => StatusCode::UNPROCESSABLE_ENTITY,
             AppError::Upstream(_) => StatusCode::BAD_GATEWAY,
