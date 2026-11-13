@@ -179,6 +179,8 @@ h1 { font-size: 1.4rem; }
 .home ul { max-width: 42rem; line-height: 1.55; }
 .home .lead { font-size: 1.05rem; opacity: 0.8; margin-top: -0.25rem; }
 .home h2 { font-size: 1.1rem; margin: 2rem 0 0.5rem; }
+.home-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem; margin-top: 1.25rem; }
+.home-cta .hint { margin: 0; flex: 1 1 18rem; }
 .feature-list { padding-left: 1.25rem; }
 .feature-list li { margin-bottom: 0.4rem; }
 
@@ -276,6 +278,19 @@ button.copy-btn {
   background: transparent;
   color: var(--accent);
 }
+
+/* A link that looks like the primary button (e.g. "Log in with SSO"). */
+a.button-link {
+  display: inline-block;
+  padding: 0.5rem 1.1rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+}
+
+a.icon-btn { text-decoration: none; }
 
 .hint { font-size: 0.85rem; opacity: 0.7; }
 

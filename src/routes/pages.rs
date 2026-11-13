@@ -1,6 +1,6 @@
 use askama::Template;
 use axum::extract::State;
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Redirect};
 use axum_csrf::CsrfToken;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
@@ -158,7 +158,7 @@ fn can_delete(state: &AppState, token_id: &str) -> bool {
         .unwrap_or(false)
 }
 
-pub(crate) fn layout_for(
+fn layout_for(
     state: &AppState,
     token: &CsrfToken,
     session: &UserSession,
@@ -174,6 +174,22 @@ pub(crate) fn layout_for(
     ))
 }
 
+/// Layout for public pages (`/home`, `/decrypt`): the signed-in sidebar when a
+/// session exists, the anonymous one (Home, Decrypt, "Log in") otherwise.
+pub(crate) fn public_layout(
+    state: &AppState,
+    token: &CsrfToken,
+    session: Option<&UserSession>,
+) -> anyhow::Result<Layout> {
+    match session {
+        Some(session) => layout_for(state, token, session),
+        None => token
+            .authenticity_token()
+            .map(|csrf| Layout::anonymous(csrf, state.config.pbkdf2_iterations))
+            .map_err(|e| anyhow::anyhow!("csrf token error: {e}")),
+    }
+}
+
 struct DashboardSection {
     kind: db::UploadKind,
     page: SectionPage,
@@ -187,11 +203,16 @@ struct DashboardTemplate {
     can_delete: bool,
 }
 
+/// `GET /` — the dashboard for signed-in users. Anonymous visitors land on the
+/// public Home page instead of being sent straight to the SSO login.
 pub async fn dashboard(
     State(state): State<AppState>,
-    session: UserSession,
+    session: Option<UserSession>,
     csrf_token: CsrfToken,
 ) -> axum::response::Response {
+    let Some(session) = session else {
+        return Redirect::to("/home").into_response();
+    };
     let layout = match layout_for(&state, &csrf_token, &session) {
         Ok(l) => l,
         Err(e) => return crate::error::AppError::Internal(e).into_response(),
@@ -220,12 +241,13 @@ struct HomeTemplate {
     layout: Layout,
 }
 
+/// `GET /home` — public.
 pub async fn home_page(
     State(state): State<AppState>,
-    session: UserSession,
+    session: Option<UserSession>,
     csrf_token: CsrfToken,
 ) -> axum::response::Response {
-    match layout_for(&state, &csrf_token, &session) {
+    match public_layout(&state, &csrf_token, session.as_ref()) {
         Ok(layout) => (csrf_token, Tpl(HomeTemplate { layout })).into_response(),
         Err(e) => crate::error::AppError::Internal(e).into_response(),
     }
