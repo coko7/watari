@@ -194,8 +194,7 @@ async function readPlaintext(form) {
   }
   if (form.id === "paste-form") {
     const content = form.querySelector("#content")?.value ?? "";
-    const name = form.querySelector("#filename")?.value?.trim() || "paste.txt";
-    return { bytes: new TextEncoder().encode(content), filename: name };
+    return { bytes: new TextEncoder().encode(content), filename: "paste.txt" };
   }
   if (form.id === "shorten-form") {
     const url = form.querySelector("#url")?.value ?? "";
