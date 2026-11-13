@@ -5,6 +5,7 @@ use axum::response::{IntoResponse, Response};
 use axum_csrf::CsrfToken;
 use serde::Deserialize;
 
+use crate::db::UploadKind;
 use crate::error::AppError;
 use crate::rustypaste::{FileMode, RustypasteError, UrlMode};
 use crate::session::UserSession;
@@ -13,7 +14,7 @@ use crate::templates::Tpl;
 use crate::token_map::Permission;
 use crate::{csrf, db};
 
-use super::pages::{LoadMoreTemplate, PAGE_SIZE, PasteRowsTemplate, UploadRowView};
+use super::pages::{LoadMoreTemplate, PasteRowsTemplate, load_section_page};
 
 #[derive(Template)]
 #[template(path = "partials/flash.html")]
@@ -172,7 +173,7 @@ async fn log_upload(
     session: &UserSession,
     display_name: &str,
     paste_url: &str,
-    kind: &str,
+    kind: UploadKind,
     encrypted: bool,
     expire: &Option<String>,
 ) {
@@ -251,7 +252,7 @@ pub async fn upload(
                 &session,
                 &filename,
                 &url,
-                "file",
+                UploadKind::File,
                 encrypted,
                 &parsed.expire,
             )
@@ -325,7 +326,7 @@ pub async fn paste(
                 &session,
                 &display_name,
                 &url,
-                "paste",
+                UploadKind::Paste,
                 encrypted,
                 &parsed.expire,
             )
@@ -380,7 +381,7 @@ pub async fn shorten(
                     &session,
                     &url,
                     &short_url,
-                    "url",
+                    UploadKind::Url,
                     false,
                     &parsed.expire,
                 )
@@ -418,7 +419,7 @@ pub async fn shorten(
                 &session,
                 &filename,
                 &url,
-                "url",
+                UploadKind::Url,
                 encrypted,
                 &parsed.expire,
             )
@@ -505,6 +506,8 @@ pub async fn delete_paste(
 
 #[derive(Deserialize)]
 pub struct PastesQuery {
+    /// Which dashboard section is paginating.
+    kind: UploadKind,
     before: Option<i64>,
 }
 
@@ -513,24 +516,25 @@ pub async fn list_pastes(
     session: UserSession,
     Query(query): Query<PastesQuery>,
 ) -> Response {
-    let db_rows = db::list_uploads_page(&state.db, &session.user_sub, query.before, PAGE_SIZE)
-        .await
-        .unwrap_or_default();
-    let has_more = db_rows.len() as i64 == PAGE_SIZE;
-    let next_cursor = db_rows.last().map(|r| r.created_at);
-    let rows: Vec<UploadRowView> = db_rows.iter().map(UploadRowView::from).collect();
+    let kind = query.kind;
+    let page = load_section_page(&state, &session.user_sub, kind, query.before).await;
     let can_delete = state
         .token_map
         .get(&session.token_id)
         .map(|b| b.has(Permission::Delete))
         .unwrap_or(false);
 
-    let rows_html = PasteRowsTemplate { rows, can_delete }
-        .render()
-        .unwrap_or_default();
+    let rows_html = PasteRowsTemplate {
+        kind,
+        rows: page.rows,
+        can_delete,
+    }
+    .render()
+    .unwrap_or_default();
     let load_more_html = LoadMoreTemplate {
-        has_more,
-        next_cursor,
+        kind,
+        has_more: page.has_more,
+        next_cursor: page.next_cursor,
     }
     .render()
     .unwrap_or_default();

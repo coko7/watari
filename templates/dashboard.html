@@ -3,15 +3,28 @@
 {% block title %}Dashboard — Watari{% endblock %}
 
 {% block content %}
-<h1>Your pastes</h1>
+<h1>Dashboard</h1>
 <div id="dashboard-flash" aria-live="polite"></div>
-<table class="upload-table">
-  <thead>
-    <tr><th>Name</th><th>URL</th><th>Kind</th><th>Created</th><th></th></tr>
-  </thead>
-  <tbody id="upload-rows">
-    {% include "partials/paste_row.html" %}
-  </tbody>
-</table>
-{% include "partials/load_more.html" %}
+{% for section in sections %}
+{% let kind = section.kind %}
+{% let rows = section.page.rows.as_slice() %}
+{% let has_more = section.page.has_more %}
+{% let next_cursor = section.page.next_cursor %}
+<section class="dashboard-section" aria-labelledby="section-{{ kind.as_str() }}">
+  <h2 id="section-{{ kind.as_str() }}">{{ kind.title() }}</h2>
+  {% if rows.is_empty() %}
+  <p class="empty-state">No {{ kind.noun() }}s yet. <a href="{{ kind.create_page() }}">{{ kind.create_label() }}</a></p>
+  {% else %}
+  <table class="upload-table">
+    <thead>
+      <tr><th>{{ kind.name_header() }}</th><th>{{ kind.link_header() }}</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody id="rows-{{ kind.as_str() }}">
+      {% include "partials/paste_row.html" %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% include "partials/load_more.html" %}
+</section>
+{% endfor %}
 {% endblock %}

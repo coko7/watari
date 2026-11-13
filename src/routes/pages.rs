@@ -18,14 +18,89 @@ pub struct UploadRowView {
     pub id: String,
     pub display_name: String,
     pub paste_url: String,
-    pub kind: String,
     pub encrypted: bool,
-    pub created_at_display: String,
+    /// RFC 3339 (UTC); `static/app.js` turns it into "14:05" / "3 days ago" in
+    /// the viewer's timezone.
+    pub created_at_iso: String,
+}
+
+/// Dashboard wording for each section (one per `UploadKind`).
+impl db::UploadKind {
+    pub fn title(self) -> &'static str {
+        match self {
+            db::UploadKind::Paste => "Pastes",
+            db::UploadKind::File => "Uploads",
+            db::UploadKind::Url => "Short URLs",
+        }
+    }
+
+    pub fn name_header(self) -> &'static str {
+        match self {
+            db::UploadKind::Paste => "Content",
+            db::UploadKind::File => "File",
+            db::UploadKind::Url => "Target",
+        }
+    }
+
+    pub fn link_header(self) -> &'static str {
+        match self {
+            db::UploadKind::Paste | db::UploadKind::File => "Link",
+            db::UploadKind::Url => "Short link",
+        }
+    }
+
+    /// Singular noun, used in "Delete this …?" and "No …s yet."
+    pub fn noun(self) -> &'static str {
+        match self {
+            db::UploadKind::Paste => "paste",
+            db::UploadKind::File => "upload",
+            db::UploadKind::Url => "short URL",
+        }
+    }
+
+    pub fn create_page(self) -> &'static str {
+        match self {
+            db::UploadKind::Paste => "/paste",
+            db::UploadKind::File => "/upload",
+            db::UploadKind::Url => "/shorten",
+        }
+    }
+
+    pub fn create_label(self) -> &'static str {
+        match self {
+            db::UploadKind::Paste => "Paste some text",
+            db::UploadKind::File => "Upload a file",
+            db::UploadKind::Url => "Shorten a URL",
+        }
+    }
+}
+
+/// One page of a dashboard section, newest first.
+pub struct SectionPage {
+    pub rows: Vec<UploadRowView>,
+    pub has_more: bool,
+    pub next_cursor: Option<i64>,
+}
+
+pub async fn load_section_page(
+    state: &AppState,
+    user_sub: &str,
+    kind: db::UploadKind,
+    before: Option<i64>,
+) -> SectionPage {
+    let db_rows = db::list_uploads_page(&state.db, user_sub, kind, before, PAGE_SIZE)
+        .await
+        .unwrap_or_default();
+    SectionPage {
+        has_more: db_rows.len() as i64 == PAGE_SIZE,
+        next_cursor: db_rows.last().map(|r| r.created_at),
+        rows: db_rows.iter().map(UploadRowView::from).collect(),
+    }
 }
 
 impl From<&db::UploadLogRow> for UploadRowView {
     fn from(row: &db::UploadLogRow) -> Self {
-        let created_at_display = OffsetDateTime::from_unix_timestamp(row.created_at)
+        let created_at_iso = OffsetDateTime::from_unix_timestamp(row.created_at)
             .ok()
             .and_then(|t| t.format(&Rfc3339).ok())
             .unwrap_or_default();
@@ -33,9 +108,8 @@ impl From<&db::UploadLogRow> for UploadRowView {
             id: row.id.clone(),
             display_name: row.display_name.clone(),
             paste_url: row.paste_url.clone(),
-            kind: row.kind.clone(),
             encrypted: row.encrypted,
-            created_at_display,
+            created_at_iso,
         }
     }
 }
@@ -43,6 +117,7 @@ impl From<&db::UploadLogRow> for UploadRowView {
 #[derive(Template)]
 #[template(path = "partials/paste_row.html")]
 pub struct PasteRowsTemplate {
+    pub kind: db::UploadKind,
     pub rows: Vec<UploadRowView>,
     pub can_delete: bool,
 }
@@ -50,6 +125,7 @@ pub struct PasteRowsTemplate {
 #[derive(Template)]
 #[template(path = "partials/load_more.html")]
 pub struct LoadMoreTemplate {
+    pub kind: db::UploadKind,
     pub has_more: bool,
     pub next_cursor: Option<i64>,
 }
@@ -86,14 +162,17 @@ fn layout_for(
     ))
 }
 
+struct DashboardSection {
+    kind: db::UploadKind,
+    page: SectionPage,
+}
+
 #[derive(Template)]
 #[template(path = "dashboard.html")]
 struct DashboardTemplate {
     layout: Layout,
-    rows: Vec<UploadRowView>,
+    sections: Vec<DashboardSection>,
     can_delete: bool,
-    has_more: bool,
-    next_cursor: Option<i64>,
 }
 
 pub async fn dashboard(
@@ -106,21 +185,18 @@ pub async fn dashboard(
         Err(e) => return crate::error::AppError::Internal(e).into_response(),
     };
 
-    let db_rows = db::list_uploads_page(&state.db, &session.user_sub, None, PAGE_SIZE)
-        .await
-        .unwrap_or_default();
-    let has_more = db_rows.len() as i64 == PAGE_SIZE;
-    let next_cursor = db_rows.last().map(|r| r.created_at);
-    let rows = db_rows.iter().map(UploadRowView::from).collect();
+    let mut sections = Vec::with_capacity(db::UploadKind::ALL.len());
+    for kind in db::UploadKind::ALL {
+        let page = load_section_page(&state, &session.user_sub, kind, None).await;
+        sections.push(DashboardSection { kind, page });
+    }
 
     (
         csrf_token,
         Tpl(DashboardTemplate {
             layout,
-            rows,
+            sections,
             can_delete: can_delete(&state, &session.token_id),
-            has_more,
-            next_cursor,
         }),
     )
         .into_response()
