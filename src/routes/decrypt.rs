@@ -49,14 +49,7 @@ pub async fn page(
     csrf_token: CsrfToken,
     Query(query): Query<DecryptPageQuery>,
 ) -> Response {
-    let layout = match &session {
-        Some(session) => super::pages::layout_for(&state, &csrf_token, session),
-        None => csrf_token
-            .authenticity_token()
-            .map(|csrf| Layout::anonymous(csrf, state.config.pbkdf2_iterations))
-            .map_err(|e| anyhow::anyhow!("csrf token error: {e}")),
-    };
-    let layout = match layout {
+    let layout = match super::pages::public_layout(&state, &csrf_token, session.as_ref()) {
         Ok(l) => l,
         Err(e) => return AppError::Internal(e).into_response(),
     };

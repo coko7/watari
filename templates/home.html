@@ -6,6 +6,12 @@
 <div class="home">
   <h1>Watari</h1>
   <p class="lead">A web front end for <a href="https://github.com/orhun/rustypaste" target="_blank" rel="noopener">rustypaste</a> that gives every teammate their own login.</p>
+  {% if layout.user_email.is_none() %}
+  <div class="home-cta">
+    <a class="button-link" href="/auth/login">Log in with SSO</a>
+    <p class="hint">to upload files, paste text and shorten links. Opening password-protected content needs no account: use the <a href="/decrypt">Decrypt</a> tab.</p>
+  </div>
+  {% endif %}
 
   <h2>Why Watari?</h2>
   <p>rustypaste is a minimal self-hosted pastebin and file-sharing server. It only offers an HTTP API protected by shared tokens and has no notion of users, so everyone who wants to use it ends up holding the same raw token.</p>
