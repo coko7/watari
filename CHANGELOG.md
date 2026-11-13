@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.0](https://github.com/coko7/watari/compare/watari-v1.0.0...watari-v1.1.0) (2026-11-13)
+
+
+### Features
+
+* **auth:** make Home page public, keep app pages behind SSO ([#12](https://github.com/coko7/watari/issues/12)) ([81680d8](https://github.com/coko7/watari/commit/81680d80d81291ba44b8c053f958a329734e19c5))
+* **dashboard:** split into sections per kind, show friendly dates ([#10](https://github.com/coko7/watari/issues/10)) ([cc7b4ff](https://github.com/coko7/watari/commit/cc7b4ffcd6dcecf7c65e573db8ae998f855626f1))
+* **decrypt:** add Decrypt tab and explain sharing protected content ([#11](https://github.com/coko7/watari/issues/11)) ([0a888a5](https://github.com/coko7/watari/commit/0a888a5a811138d845dbf7a7a7503b7850ec3479))
+* **paste:** drop filename field, only the content matters ([#8](https://github.com/coko7/watari/issues/8)) ([ce822cb](https://github.com/coko7/watari/commit/ce822cb9d20804617381a142947478a05998dfe1))
+* **ui:** add Home page with overview and architecture diagram ([#9](https://github.com/coko7/watari/issues/9)) ([bffe15a](https://github.com/coko7/watari/commit/bffe15a1be182296064b5aa93a07c1da6497bda5))
+
+
+### Bug Fixes
+
+* **dashboard:** allow deleting expired and consumed one-shot pastes ([#6](https://github.com/coko7/watari/issues/6)) ([38be52c](https://github.com/coko7/watari/commit/38be52c7ef3061239daf07ebf1ead1ac7a63abc4))
+
 ## [1.0.0](https://github.com/coko7/watari/compare/watari-v0.5.0...watari-v1.0.0) (2026-08-18)
 
 
