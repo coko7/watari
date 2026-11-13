@@ -167,6 +167,31 @@ main {
 
 h1 { font-size: 1.4rem; }
 
+/* --- Home page --- */
+.home p,
+.home ul { max-width: 42rem; line-height: 1.55; }
+.home .lead { font-size: 1.05rem; opacity: 0.8; margin-top: -0.25rem; }
+.home h2 { font-size: 1.1rem; margin: 2rem 0 0.5rem; }
+.feature-list { padding-left: 1.25rem; }
+.feature-list li { margin-bottom: 0.4rem; }
+
+/* Box-drawing diagram in a terminal-UI style; columns must stay aligned, so
+   it scrolls horizontally instead of wrapping on narrow screens. */
+.tui-diagram {
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.75rem 0 0;
+  padding: 1rem 1.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+.tui-title { color: var(--accent); font-weight: 600; }
+
 table.upload-table {
   width: 100%;
   border-collapse: collapse;
@@ -326,6 +351,13 @@ button.copy-btn {
 
 .footer a {
   color: inherit;
+}
+
+.footer-icon {
+  width: 1em;
+  height: 1em;
+  margin-right: 0.3em;
+  vertical-align: -0.125em;
 }
 
 .error-page {

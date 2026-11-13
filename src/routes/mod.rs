@@ -30,6 +30,7 @@ pub fn router(max_body_bytes: usize) -> Router<AppState> {
 
     Router::new()
         .route("/", get(pages::dashboard))
+        .route("/home", get(pages::home_page))
         .route("/upload", get(pages::upload_page))
         .route("/paste", get(pages::paste_page))
         .route("/shorten", get(pages::shorten_page))

@@ -127,6 +127,23 @@ pub async fn dashboard(
 }
 
 #[derive(Template)]
+#[template(path = "home.html")]
+struct HomeTemplate {
+    layout: Layout,
+}
+
+pub async fn home_page(
+    State(state): State<AppState>,
+    session: UserSession,
+    csrf_token: CsrfToken,
+) -> axum::response::Response {
+    match layout_for(&state, &csrf_token, &session) {
+        Ok(layout) => (csrf_token, Tpl(HomeTemplate { layout })).into_response(),
+        Err(e) => crate::error::AppError::Internal(e).into_response(),
+    }
+}
+
+#[derive(Template)]
 #[template(path = "upload.html")]
 struct UploadTemplate {
     layout: Layout,
