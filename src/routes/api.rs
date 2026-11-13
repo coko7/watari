@@ -61,6 +61,19 @@ fn humantime_expire(raw: &Option<String>) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
+/// Dashboard label for a plaintext paste (the `display_name` "text snippet" of
+/// watari.md §10): its first non-blank line, truncated.
+fn paste_snippet(bytes: &[u8]) -> Option<String> {
+    const MAX_CHARS: usize = 60;
+    let text = std::str::from_utf8(bytes).ok()?;
+    let line = text.lines().map(str::trim).find(|l| !l.is_empty())?;
+    let mut snippet: String = line.chars().take(MAX_CHARS).collect();
+    if line.chars().count() > MAX_CHARS {
+        snippet.push('…');
+    }
+    Some(snippet)
+}
+
 fn format_bytes(bytes: usize) -> String {
     const UNITS: [&str; 4] = ["KB", "MB", "GB", "TB"];
     if bytes < 1024 {
@@ -269,10 +282,22 @@ pub async fn paste(
         Err(e) => return e.into_response(),
     };
 
-    let filename = parsed
-        .override_filename
-        .unwrap_or_else(|| "paste.txt".to_string());
+    // Pastes are unnamed; only the content matters. With rustypaste's
+    // `random_url` set, the name only contributes its `.txt` extension; without
+    // it the name is used verbatim, so it must be unique or rustypaste answers
+    // 409 "file already exists". Any `filename` form field is ignored.
+    let filename = format!(
+        "paste-{}.txt",
+        &uuid::Uuid::new_v4().simple().to_string()[..8]
+    );
     let encrypted = is_encrypted(&parsed.bytes);
+    // The server can't read encrypted content, so those fall back to the
+    // upstream filename once rustypaste has picked it.
+    let snippet = if encrypted {
+        None
+    } else {
+        paste_snippet(&parsed.bytes)
+    };
     let mode = if parsed.oneshot {
         FileMode::OneShot
     } else {
@@ -292,10 +317,13 @@ pub async fn paste(
         .await
     {
         Ok(url) => {
+            let display_name = snippet
+                .or_else(|| crate::rustypaste::filename_from_paste_url(&url))
+                .unwrap_or(filename);
             log_upload(
                 &state,
                 &session,
-                &filename,
+                &display_name,
                 &url,
                 "paste",
                 encrypted,
@@ -507,4 +535,30 @@ pub async fn list_pastes(
     .render()
     .unwrap_or_default();
     axum::response::Html(format!("{rows_html}{load_more_html}")).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snippet_is_first_non_blank_line() {
+        assert_eq!(
+            paste_snippet(b"\n   \n  hello world  \nsecond line"),
+            Some("hello world".to_string())
+        );
+    }
+
+    #[test]
+    fn snippet_truncates_long_lines_on_char_boundaries() {
+        let line = "é".repeat(80);
+        let snippet = paste_snippet(line.as_bytes()).unwrap();
+        assert_eq!(snippet, format!("{}…", "é".repeat(60)));
+    }
+
+    #[test]
+    fn snippet_is_none_for_blank_or_non_utf8_content() {
+        assert_eq!(paste_snippet(b"  \n\t\n"), None);
+        assert_eq!(paste_snippet(&[0xff, 0xfe, 0x00]), None);
+    }
 }

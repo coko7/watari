@@ -41,6 +41,7 @@ Watari is a Rust/Axum web GUI that sits in front of [rustypaste](https://github.
 - `/api/pastes/{id}` (not the spec's shorthand `/api/[id]`) for the delete endpoint, to keep it next to the `/api/pastes` pagination endpoint.
 - "Admin" (for gating `/admin/tokens`) is defined as *the resolved token binding has the `delete` permission* — the spec doesn't define it more precisely.
 - Encrypted URL-shortening: rustypaste's `url` field is a redirect target, so it can't hold ciphertext. When password-protection is on, `/api/shorten` uploads the encrypted URL as a `.enc` **file** instead of calling rustypaste's shorten endpoint (still logged with `kind: "url"` in `upload_log` for display purposes).
+- Text paste has no filename/extension field (§8): only the content matters. `/api/paste` ignores any `filename` field and sends rustypaste a generated unique `paste-<8 hex>.txt` (unique so deployments without `random_url` don't 409 on name collisions). The dashboard label (`display_name`) is the paste's first non-blank line, or rustypaste's resulting filename for encrypted pastes, whose content the server can't read.
 - CSP has no nonce — every template ended up with zero inline `<script>`/`<style>` (HTMX config goes through the `hx-headers` body attribute, encryption logic lives in `static/app.js`), so a static policy is enough.
 
 ## Architecture invariants worth preserving
