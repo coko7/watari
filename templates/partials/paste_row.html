@@ -11,7 +11,8 @@
             hx-delete="/api/pastes/{{ row.id }}"
             hx-target="#upload-{{ row.id }}"
             hx-swap="outerHTML"
-            hx-confirm="Delete this paste?">Delete</button>
+            hx-confirm="Delete this paste?"
+            data-error-target="#dashboard-flash">Delete</button>
     {% endif %}
   </td>
 </tr>

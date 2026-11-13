@@ -108,6 +108,34 @@ document.addEventListener("click", (e) => {
   if (text) navigator.clipboard?.writeText(text);
 });
 
+// --- Inline HTMX error messages (dashboard Delete buttons) ---
+// HTMX core drops 4xx/5xx responses without swapping. An element with
+// `data-error-target="<selector>"` gets its error body (a flash fragment)
+// swapped into that element instead, and the element is cleared again on the
+// next successful request. Stands in for htmx's `hx-target-error`, which needs
+// the response-targets extension.
+function errorTargetFor(detail) {
+  const selector = detail.requestConfig?.elt?.dataset?.errorTarget;
+  return selector ? document.querySelector(selector) : null;
+}
+
+document.addEventListener("htmx:beforeSwap", (e) => {
+  const target = errorTargetFor(e.detail);
+  if (!target) return;
+  if (!e.detail.isError) {
+    target.replaceChildren();
+    return;
+  }
+  e.detail.shouldSwap = true;
+  e.detail.target = target;
+  e.detail.swapOverride = "innerHTML";
+});
+
+document.addEventListener("htmx:sendError", (e) => {
+  const target = errorTargetFor(e.detail);
+  if (target) renderFlash(target, false, "Request failed: could not reach Watari. Reload the page and try again.");
+});
+
 // --- Drag-and-drop file input (upload page) ---
 function updateDropzoneFile(dropzone) {
   const input = dropzone.querySelector('input[type="file"]');

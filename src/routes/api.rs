@@ -33,8 +33,12 @@ fn flash_ok(message: impl Into<String>, url: String) -> Response {
 }
 
 fn flash_err(message: impl Into<String>) -> Response {
+    flash_err_status(StatusCode::UNPROCESSABLE_ENTITY, message)
+}
+
+fn flash_err_status(status: StatusCode, message: impl Into<String>) -> Response {
     (
-        StatusCode::UNPROCESSABLE_ENTITY,
+        status,
         Tpl(FlashTemplate {
             ok: false,
             message: message.into(),
@@ -407,6 +411,9 @@ fn upstream_message(err: RustypasteError) -> String {
     }
 }
 
+/// Every error path returns a flash fragment (not the full-page `AppError`
+/// template): the dashboard's Delete button swaps error bodies into its
+/// `data-error-target` (see `static/app.js`).
 pub async fn delete_paste(
     State(state): State<AppState>,
     session: UserSession,
@@ -415,26 +422,52 @@ pub async fn delete_paste(
     Path(id): Path<String>,
 ) -> Response {
     if let Err(e) = csrf::verify(&csrf_token, &headers) {
-        return e.into_response();
+        return flash_err(format!(
+            "Delete failed: {e}. Reload the page and try again."
+        ));
     }
-    let token = match permission_check(&state, &session, Permission::Delete) {
-        Ok(t) => t,
-        Err(e) => return e.into_response(),
+    let Ok(token) = permission_check(&state, &session, Permission::Delete) else {
+        return flash_err_status(
+            StatusCode::FORBIDDEN,
+            "Delete failed: you don't have permission to delete pastes.",
+        );
     };
 
     let row = match db::get_upload_for_user(&state.db, &id, &session.user_sub).await {
         Ok(Some(row)) => row,
-        Ok(None) => return AppError::NotFound.into_response(),
-        Err(e) => return AppError::Internal(e.into()).into_response(),
+        Ok(None) => {
+            return flash_err_status(
+                StatusCode::NOT_FOUND,
+                "Delete failed: paste not found. It may already have been deleted; reload the page.",
+            );
+        }
+        Err(e) => {
+            tracing::error!(error = ?e, "failed to load upload_log row for delete");
+            return flash_err_status(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Delete failed: internal server error.",
+            );
+        }
     };
 
     let Some(filename) = crate::rustypaste::filename_from_paste_url(&row.paste_url) else {
-        return AppError::Internal(anyhow::anyhow!("stored paste_url has no filename segment"))
-            .into_response();
+        tracing::error!(paste_url = %row.paste_url, "stored paste_url has no filename segment");
+        return flash_err_status(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Delete failed: internal server error.",
+        );
     };
 
-    if let Err(e) = state.rustypaste.delete(&token, &filename).await {
-        return flash_err(upstream_message(e));
+    match state.rustypaste.delete(&token, &filename).await {
+        Ok(()) => {}
+        // rustypaste answers 404 ("file is not found or expired") for anything
+        // it no longer serves: expired items, and one-shot files/URLs that were
+        // already viewed (it renames them with a past timestamp on first view).
+        // The paste is already gone upstream, so just drop our log row.
+        Err(RustypasteError::Upstream { status, .. }) if status == StatusCode::NOT_FOUND => {
+            tracing::info!(%filename, "paste already gone upstream; removing log row");
+        }
+        Err(e) => return flash_err(format!("Delete failed: {}.", upstream_message(e))),
     }
 
     let _ = db::delete_upload_log(&state.db, &id).await;
